@@ -131,3 +131,4 @@ Abra seu navegador em: **`http://localhost:3000`**
 - **Pseudônimos Obrigatórios:** Manifestações e acolhimentos não exigem nome civil nem CPF.
 - **Isolamento de Dados:** Métricas exibidas à coordenação são sempre agregadas por turma ou centro acadêmico.
 - **Rastreabilidade por Protocolo:** Códigos únicos (`FM-2026-UFPE-XXXX`) garantem que apenas o estudante consulte seu histórico.
+# faculmind
