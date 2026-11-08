@@ -152,17 +152,17 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 					<div className="bg-slate-100/80 border-b border-slate-200 p-2 flex gap-1.5 shrink-0">
 						<button
 							onClick={() => {
-								setActiveMode("2tabs");
+								setActiveMode("form");
 								sound.playPop();
 							}}
 							className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-								activeMode === "2tabs"
+								activeMode === "form"
 									? "bg-white text-ufpe-burgundy shadow-xs"
 									: "text-slate-600 hover:bg-white/50"
 							}`}
 						>
-							<ExternalLink size={14} />
-							<span>Sincronização em 2 Abas (Recomendada)</span>
+							<ShieldCheck size={14} />
+							<span>Login com SIGAA</span>
 						</button>
 
 						<button
@@ -199,138 +199,91 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 
 				{/* Modal Content */}
 				<div className="p-6 overflow-y-auto space-y-5">
-					{/* Security & Privacy Banner */}
-					<div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-start gap-3">
-						<ShieldCheck
+					{/* Security & Privacy Banner for Form Login */}
+					<div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-start gap-3">
+						<AlertCircle
 							size={20}
-							className="text-emerald-700 shrink-0 mt-0.5"
+							className="text-amber-700 shrink-0 mt-0.5"
 						/>
-						<div className="text-xs text-emerald-900 leading-relaxed">
-							<strong>100% Seguro (Conformidade LGPD):</strong> Você faz login{" "}
-							<strong>diretamente no site oficial da UFPE</strong>. Nenhuma
-							senha trafega pelo Facul Mind.
+						<div className="text-xs text-amber-900 leading-relaxed">
+							<strong>Atenção:</strong> Ao usar este método, suas credenciais
+							(usuário e senha) são enviadas diretamente para o nosso servidor
+							para autenticação no SIGAA. Embora não as armazenemos,
+							compreendemos que o método de 2 abas pode ser preferível por não
+							envolver o envio de senhas.
 						</div>
 					</div>
 
 					{!syncedData ? (
 						<>
-							{/* MODE 1: 2 TABS WORKFLOW */}
-							{activeMode === "2tabs" && (
+							{/* MODE 1: FORM LOGIN */}
+							{activeMode === "form" && (
 								<div className="space-y-4 animate-in fade-in duration-150">
-									{/* Step 1 */}
-									<div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-2">
-										<div className="flex items-center justify-between">
-											<span className="text-[11px] font-extrabold uppercase tracking-wide text-ufpe-burgundy">
-												Passo 1 de 2: Abrir o SIGAA
-											</span>
-											<span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full">
-												Aba Oficial
-											</span>
-										</div>
-
-										<p className="text-xs text-slate-600">
-											Clique no botão abaixo para abrir o SIGAA em uma segunda
-											aba e faça seu login discente normalmente.
-										</p>
-
-										<button
-											onClick={handleOpenSigaaTab}
-											className="w-full py-3 px-4 rounded-xl bg-ufpe-burgundy hover:bg-ufpe-dark text-white text-xs font-bold shadow-md transition flex items-center justify-center gap-2"
-										>
-											<ExternalLink size={16} />
-											<span>Abrir SIGAA UFPE em Nova Aba</span>
-										</button>
-									</div>
-
-									{/* Step 2 */}
 									<div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3">
-										<div className="flex items-center justify-between">
-											<span className="text-[11px] font-extrabold uppercase tracking-wide text-emerald-800">
-												Passo 2 de 2: Conectar com o Facul Mind
-											</span>
-											<span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-												Instantâneo
-											</span>
-										</div>
-
-										<p className="text-xs text-slate-600 leading-relaxed">
-											Após logar no SIGAA e entrar no{" "}
-											<strong>Portal do Discente</strong> (onde aparecem suas
-											turmas), transfira os dados para o Facul Mind usando uma
-											das opções:
+										<h5 className="text-xs font-bold text-slate-800">
+											Login no SIGAA
+										</h5>
+										<p className="text-[11px] text-slate-500 mb-2">
+											Insira seu usuário e senha do SIGAA. Nós faremos o login
+											por você e extrairemos suas informações acadêmicas.
 										</p>
 
-										<div className="space-y-2 pt-1">
-											{/* Option A: Draggable Bookmarklet */}
-											<div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-												<div>
-													<strong className="text-xs text-amber-950 block">
-														Opção A (Mais fácil): Botão Favorito
-													</strong>
-													<span className="text-[11px] text-amber-800">
-														Arraste este botão para sua barra de favoritos. Na
-														aba do SIGAA, clique nele!
-													</span>
-												</div>
-
-												<a
-													href={bookmarkletCode}
-													onClick={(e) => {
-														e.preventDefault();
-														alert(
-															'Arraste este botão "⚡ Sincronizar Facul Mind" para a barra de favoritos do seu navegador, ou use a Opção B para copiar o código!',
-														);
-													}}
-													className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl font-extrabold text-xs shadow-xs cursor-grab active:cursor-grabbing text-center whitespace-nowrap"
-												>
-													⚡ Sincronizar Facul Mind
-												</a>
-											</div>
-
-											{/* Option B: Copy 1-Line Script */}
-											<div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
-												<div>
-													<strong className="text-xs text-slate-900 block">
-														Opção B: Copiar Comando
-													</strong>
-													<span className="text-[11px] text-slate-500">
-														Cole no console da aba do SIGAA (F12 &gt Console) e
-														dê Enter.
-													</span>
-												</div>
-
-												<button
-													onClick={handleCopyScript}
-													className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-xl font-bold text-xs flex items-center gap-1.5 transition"
-												>
-													{copiedScript ? (
-														<Check size={14} className="text-emerald-600" />
-													) : (
-														<Copy size={14} />
-													)}
-													<span>{copiedScript ? "Copiado!" : "Copiar"}</span>
-												</button>
-											</div>
+										<div>
+											<label
+												htmlFor="sigaa-username"
+												className="block text-xs font-bold text-slate-800 mb-1"
+											>
+												Usuário (Matrícula ou CPF)
+											</label>
+											<input
+												type="text"
+												id="sigaa-username"
+												value={username}
+												onChange={(e) => setUsername(e.target.value)}
+												placeholder="Sua matrícula ou CPF"
+												className="w-full text-xs p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ufpe-burgundy"
+											/>
 										</div>
 
-										{/* Waiting Indicator */}
-										{isWaitingForSync && (
-											<div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex items-center gap-3 animate-pulse">
-												<Radio
-													size={18}
-													className="text-emerald-600 animate-ping shrink-0"
+										<div>
+											<label
+												htmlFor="sigaa-password"
+												className="block text-xs font-bold text-slate-800 mb-1"
+											>
+												Senha
+											</label>
+											<input
+												type="password"
+												id="sigaa-password"
+												value={password}
+												onChange={(e) => setPassword(e.target.value)}
+												placeholder="Sua senha do SIGAA"
+												className="w-full text-xs p-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-ufpe-burgundy"
+											/>
+										</div>
+
+										{error && (
+											<div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+												<AlertCircle
+													size={16}
+													className="text-rose-600 shrink-0"
 												/>
-												<div>
-													<span className="text-xs font-bold text-emerald-950 block">
-														Aguardando dados da aba do SIGAA...
-													</span>
-													<span className="text-[11px] text-emerald-800">
-														Assim que você clicar no botão na aba do SIGAA, esta
-														tela atualizará automaticamente!
-													</span>
-												</div>
+												<span>{error}</span>
 											</div>
 										)}
+
+										<button
+											onClick={handleLoginSync}
+											disabled={!username.trim() || !password.trim() || loading}
+											className="w-full py-3 px-4 rounded-xl bg-ufpe-burgundy hover:bg-ufpe-dark disabled:opacity-40 text-white text-xs font-bold shadow-md transition flex items-center justify-center gap-2"
+										>
+											{loading ? (
+												<RefreshCw size={15} className="animate-spin" />
+											) : (
+												<ShieldCheck size={15} />
+											)}
+											<span>Sincronizar com SIGAA</span>
+										</button>
 									</div>
 								</div>
 							)}
