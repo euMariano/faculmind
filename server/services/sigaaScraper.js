@@ -6,11 +6,9 @@
 import puppeteer from 'puppeteer';
 import * as cheerio from 'cheerio';
 import { formatSigaaScrapedData } from './sigaaParser.js'; // Importa a função de formatação
-import type { StudentAcademicRecord } from '../../src/types'; // Importa o tipo StudentAcademicRecord
-
 const SIGAA_BASE = process.env.SIGAA_BASE_URL || 'https://sigaa.ufpe.br';
 
-export const DEMO_STUDENT_DATA: StudentAcademicRecord = {
+export const DEMO_STUDENT_DATA = {
   matricula: "2024104928",
   name: "Mariano Ferreira (Discente Conectado)",
   course: "Secretariado Executivo",
@@ -138,18 +136,7 @@ export const DEMO_STUDENT_DATA: StudentAcademicRecord = {
 /**
  * Sincroniza dados acadêmicos do SIGAA UFPE usando Puppeteer.
  */
-export async function syncWithSigaa({ username, password, demoMode = false, course = 'Secretariado Executivo' }: {
-  username?: string;
-  password?: string;
-  demoMode?: boolean;
-  course?: string;
-}): Promise<{
-  success: boolean;
-  mode: string;
-  message: string;
-  student?: StudentAcademicRecord;
-  error?: string;
-}> {
+export async function syncWithSigaa({ username, password, demoMode = false, course = 'Secretariado Executivo' }) {
   // Se o modo demonstração for solicitado ou as credenciais forem para demonstração
   if (demoMode || username === 'demo' || !username || !password) {
     const student = JSON.parse(JSON.stringify(DEMO_STUDENT_DATA));
@@ -232,7 +219,7 @@ export async function syncWithSigaa({ username, password, demoMode = false, cour
       student: studentData
     };
 
-  } catch (err: any) {
+  } catch (err) {
     console.error('[SIGAA Scraper Error]:', err.message);
     return {
       success: false,
