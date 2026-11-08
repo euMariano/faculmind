@@ -92,6 +92,10 @@ export async function syncWithSigaa(username, password) {
     // 7. Formatar dados extraídos estritamente
     const studentData = formatSigaaScrapedData(portalHtml, turmasHtml, { matricula: username });
 
+    if (!studentData.turmas || studentData.turmas.length === 0) {
+      throw new Error('A autenticação foi realizada, mas nenhuma turma pôde ser identificada no Portal do Discente.');
+    }
+
     return {
       success: true,
       mode: 'live_sigaa',

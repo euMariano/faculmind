@@ -34,7 +34,7 @@ export function parsePortalDiscenteHtml(html) {
 
     if (hasComponenteHeader) {
       $(table).find('tr').each((__, row) => {
-        // Verificar se é linha de semestre/período (ex: td com colspan ou texto de período)
+        // Verificar se é linha de semestre/período (ex: td com colspan ou texto de período 202X.X)
         const semesterTd = $(row).find('td[colspan], td.periodo, th.periodo');
         if (semesterTd.length > 0) {
           const semText = semesterTd.text().trim();
@@ -50,38 +50,21 @@ export function parsePortalDiscenteHtml(html) {
 
         const descTd = $(row).find('td.descricao');
         const infoTds = $(row).find('td.info');
-        const cells = $(row).find('td');
 
-        if (descTd.length > 0 || cells.length >= 3) {
-          let disciplinaName = '';
-          if (descTd.length > 0) {
-            disciplinaName = descTd.text().trim();
-          } else {
-            disciplinaName = $(cells[0]).text().trim();
-          }
+        if (descTd.length > 0) {
+          const disciplinaName = descTd.text().trim();
 
-          // Se for linha de separador visual (colspan=5 sem conteúdo ou texto curto)
+          // Se for linha de separador visual (colspan sem conteúdo útil ou texto curto)
           if (!disciplinaName || disciplinaName.length < 3) return;
 
           let local = null;
-          let horarioFull = null;
+          let horario = null;
 
           if (infoTds.length >= 2) {
             local = $(infoTds[0]).text().trim() || null;
-            horarioFull = $(infoTds[1]).text().trim() || null;
-          } else if (cells.length >= 3) {
-            local = $(cells[1]).text().trim() || null;
-            horarioFull = $(cells[2]).text().trim() || null;
-          }
-
-          // Limpa horários do formato "5N2345 (10/08/2026 - 12/12/2026)" para "5N2345" se desejado,
-          // mantendo o texto completo se for informativo
-          let horario = horarioFull;
-          if (horarioFull) {
-            const timeMatch = horarioFull.match(/^([0-9A-Za-z]+)/);
-            if (timeMatch && timeMatch[1].length >= 2) {
-              horario = horarioFull; // Mantém texto completo para referência precisa
-            }
+            horario = $(infoTds[1]).text().trim() || null;
+          } else if (infoTds.length === 1) {
+            local = $(infoTds[0]).text().trim() || null;
           }
 
           turmas.push({
@@ -278,8 +261,14 @@ export function parseSigaaContent(rawContent, options = {}) {
     throw new Error('Conteúdo do SIGAA não fornecido.');
   }
 
-  return formatSigaaScrapedData(rawContent, '', {
+  const parsed = formatSigaaScrapedData(rawContent, '', {
     ...options,
     source: 'SIGAA UFPE (Importação Manual)'
   });
+
+  if (!parsed.turmas || parsed.turmas.length === 0) {
+    throw new Error('Não foi possível identificar a tabela de disciplinas do Portal do Discente no HTML fornecido.');
+  }
+
+  return parsed;
 }
