@@ -136,12 +136,15 @@ export const DEMO_STUDENT_DATA = {
 
 /**
  * Sincroniza dados acadêmicos do SIGAA UFPE usando Puppeteer.
+ * @param {string} username - Usuário/Matrícula do discente
+ * @param {string} password - Senha do SIGAA
+ * @param {object} options - Opções adicionais (ex: demoMode)
  */
 export async function syncWithSigaa(username, password, options = {}) {
   const demoMode = options.demoMode || false;
   const course = options.course || '';
 
-  // Se o modo demonstração for solicitado ou as credenciais forem para demonstração
+  // Modo de demonstração ou credenciais de simulação
   if (demoMode || username === 'demo' || !username || !password) {
     const student = JSON.parse(JSON.stringify(DEMO_STUDENT_DATA));
     if (course) student.course = course;
