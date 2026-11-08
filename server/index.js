@@ -6,7 +6,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dataStore } from './data/store.js';
 import { processAgentMessage } from './agents/orchestrator.js';
-import { scrapeSigaaStudent, scrapePublicUniversityNotices } from './services/sigaaScraper.js';
+import { syncWithSigaa, scrapePublicUniversityNotices } from './services/sigaaScraper.js';
 import { parseSigaaContent } from './services/sigaaParser.js';
 
 dotenv.config();
@@ -69,7 +69,7 @@ app.post('/api/chat', async (req, res) => {
 app.post('/api/sync-university', async (req, res) => {
   try {
     const { username, password, demoMode, course } = req.body;
-    const result = await scrapeSigaaStudent({ username, password, demoMode, course });
+    const result = await syncWithSigaa({ username, password, demoMode, course }); // Chamando a nova função
     if (result.success && result.student) {
       dataStore.saveStudentAcademicRecord(result.student);
     }

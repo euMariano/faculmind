@@ -5,10 +5,12 @@
 
 import puppeteer from 'puppeteer';
 import * as cheerio from 'cheerio';
+import { formatSigaaScrapedData } from './sigaaParser.js'; // Importa a função de formatação
+import type { StudentAcademicRecord } from '../../src/types'; // Importa o tipo StudentAcademicRecord
 
 const SIGAA_BASE = process.env.SIGAA_BASE_URL || 'https://sigaa.ufpe.br';
 
-export const DEMO_STUDENT_DATA = {
+export const DEMO_STUDENT_DATA: StudentAcademicRecord = {
   matricula: "2024104928",
   name: "Mariano Ferreira (Discente Conectado)",
   course: "Secretariado Executivo",
@@ -134,10 +136,21 @@ export const DEMO_STUDENT_DATA = {
 };
 
 /**
- * Scrapes student data from SIGAA UFPE using Puppeteer
+ * Sincroniza dados acadêmicos do SIGAA UFPE usando Puppeteer.
  */
-export async function scrapeSigaaStudent({ username, password, demoMode = false, course = 'Secretariado Executivo' }) {
-  // If demo mode is requested or credentials match demo
+export async function syncWithSigaa({ username, password, demoMode = false, course = 'Secretariado Executivo' }: {
+  username?: string;
+  password?: string;
+  demoMode?: boolean;
+  course?: string;
+}): Promise<{
+  success: boolean;
+  mode: string;
+  message: string;
+  student?: StudentAcademicRecord;
+  error?: string;
+}> {
+  // Se o modo demonstração for solicitado ou as credenciais forem para demonstração
   if (demoMode || username === 'demo' || !username || !password) {
     const student = JSON.parse(JSON.stringify(DEMO_STUDENT_DATA));
     if (course) student.course = course;
@@ -169,118 +182,68 @@ export async function scrapeSigaaStudent({ username, password, demoMode = false,
     page.setDefaultNavigationTimeout(20000);
     await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-    // 1. Navigate to login page
+    // 1. Navegar para a página de login
     const loginUrl = `${SIGAA_BASE}/sigaa/verTelaLogin.do`;
     console.log(`[SIGAA Scraper] Acessando tela de login: ${loginUrl}`);
     await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
 
-    // 2. Fill login inputs
+    // 2. Preencher os campos de login e senha
     await page.waitForSelector('input[name="user.login"]', { timeout: 8000 });
     await page.type('input[name="user.login"]', username);
     await page.type('input[name="user.senha"]', password);
 
-    // 3. Submit login form
+    // 3. Clicar no botão de submit e aguardar a navegação
     console.log('[SIGAA Scraper] Enviando credenciais...');
     await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {}),
-      page.click('input[type="submit"]')
+      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {}), // Captura timeout para evitar erro fatal
+      page.click('input[type="submit"]') // Clica no botão de "Entrar"
     ]);
 
     const currentUrl = page.url();
     const content = await page.content();
-    const $ = cheerio.load(content);
+    // const $ = cheerio.load(content); // Cheerio não é mais necessário aqui, a função de parser usará
 
-    // Check for login error
-    const errorMsg = $('.erros, .error, .mensagemErro, #painel-erros').text().trim();
-    if (errorMsg || currentUrl.includes('logar.do') || currentUrl.includes('verTelaLogin.do')) {
-      console.warn(`[SIGAA Scraper] Falha na autenticação: ${errorMsg || 'Credenciais inválidas'}`);
-      await browser.close();
+    // 4. Validar se o login falhou
+    const loginError = await page.evaluate(() => {
+      const errorMsgElement = document.querySelector('.erros, .error, .mensagemErro, #painel-erros');
+      return errorMsgElement ? errorMsgElement.textContent.trim() : '';
+    });
+    
+    if (loginError || currentUrl.includes('logar.do') || currentUrl.includes('verTelaLogin.do')) {
+      console.warn(`[SIGAA Scraper] Falha na autenticação: ${loginError || 'Credenciais inválidas'}`);
       return {
         success: false,
-        error: errorMsg || 'Não foi possível autenticar no SIGAA. Verifique seu login e senha institucionais.'
+        error: loginError || 'Não foi possível autenticar no SIGAA. Verifique seu login e senha institucionais.'
       };
     }
 
-    // 4. Scrape Discente Information
-    console.log('[SIGAA Scraper] Autenticado com sucesso. Extraindo portal do discente...');
-    let studentName = $('#agenda-docente .nome, .info-discente .nome, #perfil-docente h3, .usuario strong').first().text().trim();
-    if (!studentName) studentName = username;
+    // 5. Autenticado com sucesso, extrair dados do "Portal do Discente"
+    console.log('[SIGAA Scraper] Autenticado com sucesso. Extraindo dados do portal do discente...');
+    
+    const htmlContent = await page.content();
 
-    const matriculaText = $('*:contains("Matrícula:"), *:contains("Matrícula :")').parent().text();
-    const matriculaMatch = matriculaText.match(/\d{8,11}/);
-    const matricula = matriculaMatch ? matriculaMatch[0] : `${Date.now()}`.slice(-10);
-
-    const turmas = [];
-    // Extract tables for classes, attendance and grades
-    $('table.listagem, table.tabelaRelatorio, table.tabelaTurmas').each((_, table) => {
-      $(table).find('tr').each((idx, row) => {
-        if (idx === 0) return; // header
-        const cells = $(row).find('td');
-        if (cells.length >= 3) {
-          const disciplina = $(cells[0]).text().trim();
-          const faltasStr = $(cells[cells.length - 2]).text().trim();
-          const notasStr = $(cells[cells.length - 1]).text().trim();
-          const faltas = parseInt(faltasStr, 10) || 0;
-          
-          if (disciplina && disciplina.length > 3) {
-            turmas.push({
-              id: `turma-${idx}`,
-              disciplina,
-              faltas,
-              maxFaltasPermitidas: 15,
-              presencaPercentual: Math.max(0, Math.round(((60 - faltas) / 60) * 100)),
-              notas: {
-                mediaParcial: parseFloat(notasStr.replace(',', '.')) || null
-              },
-              status: faltas > 10 ? 'Risco por faltas' : 'Regular'
-            });
-          }
-        }
-      });
-    });
-
-    await browser.close();
-
-    // If scraping found turmas, return real parsed data
-    if (turmas.length > 0) {
-      return {
-        success: true,
-        mode: 'live_sigaa',
-        message: 'Dados sincronizados diretamente do SIGAA UFPE!',
-        student: {
-          matricula,
-          name: studentName,
-          course: course || 'Secretariado Executivo',
-          institution: 'Universidade Federal de Pernambuco (UFPE)',
-          currentSemester: '2026.1',
-          cra: 8.1,
-          turmas,
-          lastSyncAt: new Date().toISOString(),
-          source: 'SIGAA UFPE Web Scraper'
-        }
-      };
-    }
-
-    // Fallback if portal structure didn't expose full table but login worked
-    const fallbackStudent = JSON.parse(JSON.stringify(DEMO_STUDENT_DATA));
-    fallbackStudent.name = studentName;
-    fallbackStudent.matricula = matricula;
-    fallbackStudent.lastSyncAt = new Date().toISOString();
+    // 6. Passar os dados brutos para a função de formatação
+    const studentData = formatSigaaScrapedData(htmlContent, { course });
+    
     return {
       success: true,
-      mode: 'live_sigaa_hybrid',
-      message: 'Sessão autenticada no SIGAA UFPE com sucesso.',
-      student: fallbackStudent
+      mode: 'live_sigaa',
+      message: 'Dados sincronizados diretamente do SIGAA UFPE!',
+      student: studentData
     };
-  } catch (err) {
-    if (browser) await browser.close().catch(() => {});
+
+  } catch (err: any) {
     console.error('[SIGAA Scraper Error]:', err.message);
-    
-    // Graceful error reporting
     return {
       success: false,
       error: `Erro ao conectar com o SIGAA UFPE: ${err.message}. Você pode usar o modo Demonstração para testar.`
     };
+  } finally {
+    // 7. Fechar o browser
+    if (browser) {
+      await browser.close().catch((e) => console.error("Erro ao fechar o browser Puppeteer:", e));
+      console.log('Navegador Puppeteer fechado.');
+    }
   }
 }
 
