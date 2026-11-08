@@ -33,11 +33,11 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 	onSyncComplete,
 	onOpenChatWithSubject,
 }) => {
-	const [activeMode, setActiveMode] = useState<"2tabs" | "paste" | "demo">(
-		"2tabs",
+	const [activeMode, setActiveMode] = useState<"form" | "paste" | "demo">(
+		"form",
 	);
-	const [copiedScript, setCopiedScript] = useState(false);
-	const [isWaitingForSync, setIsWaitingForSync] = useState(false);
+	const [username, setUsername] = useState("");
+	const [password, setPassword] = useState("");
 	const [pastedCode, setPastedCode] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -45,49 +45,35 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 		null,
 	);
 
-	// Bookmarklet 1-line script for the user's SIGAA tab
-	const bookmarkletCode = `javascript:(function(){try{var t=document.querySelectorAll('table.listagem tr, table.tabelaRelatorio tr, #turmas-portal tr');var turmas=[];t.forEach(function(r,i){if(i===0)return;var c=r.querySelectorAll('td');if(c.length>=2){var d=c[0].innerText.trim();if(d.length>3&&!d.toLowerCase().includes('total')){var f=0,n1=null,n2=null,m=null;c.forEach(function(x){var s=x.innerText.trim();if(s.toLowerCase().includes('falta')){var fm=s.match(/\\d+/);if(fm)f=parseInt(fm[0],10);}var nm=s.match(/^\\d{1,2}[\\.,]\\d{1,2}$/);if(nm){var v=parseFloat(nm[0].replace(',','.'));if(v<=10){if(n1===null)n1=v;else if(n2===null)n2=v;else m=v;}}});if(m===null&&n1!==null&&n2!==null)m=parseFloat(((n1+n2)/2).toFixed(1));turmas.push({id:'t-'+(turmas.length+1),disciplina:d,faltas:f,maxFaltasPermitidas:15,presencaPercentual:Math.max(0,Math.round(((60-f)/60)*100)),notas:{unidade1:n1,unidade2:n2,mediaParcial:m},status:f>=8?'Risco por faltas':'Em Curso'});}}});var n=document.querySelector('#agenda-docente .nome, .info-discente .nome, #perfil-docente h3, .usuario strong');var name=n?n.innerText.trim():'Discente UFPE';var payload={html:document.documentElement.outerHTML,turmas:turmas,studentName:name,sourceUrl:window.location.href};fetch('http://localhost:3001/api/sync-university/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){alert('🎉 Facul Mind: Sincronização concluída com sucesso! '+turmas.length+' disciplinas transferidas. Volte para a aba do Facul Mind.');}).catch(function(e){alert('Erro ao enviar dados para o Facul Mind. Certifique-se de que a aplicação está rodando em localhost:3000.');});}catch(err){alert('Erro: '+err.message);}})();`;
-
-	// Poll for background sync when waiting for the 2nd tab
-	useEffect(() => {
-		let interval: any = null;
-		if (isOpen && isWaitingForSync && !syncedData) {
-			interval = setInterval(async () => {
-				try {
-					const res = await api.getCurrentUniversityData();
-					if (
-						res.success &&
-						res.student &&
-						res.student.source?.includes("Sessão Autenticada")
-					) {
-						sound.playSuccess();
-						setSyncedData(res.student);
-						setIsWaitingForSync(false);
-						onSyncComplete(res.student);
-					}
-				} catch {
-					// ignore
-				}
-			}, 1500);
-		}
-		return () => {
-			if (interval) clearInterval(interval);
-		};
-	}, [isOpen, isWaitingForSync, syncedData, onSyncComplete]);
+	// O polling de background e o bookmarklet não são mais necessários para o método de formulário.
+	// O método de "2 abas seguras" foi substituído pelo login direto via formulário.
 
 	if (!isOpen) return null;
 
-	const handleOpenSigaaTab = () => {
-		sound.playPop();
-		setIsWaitingForSync(true);
-		window.open("https://sigaa.ufpe.br/sigaa/verTelaLogin.do", "_blank");
-	};
+	const handleLoginSync = async () => {
+		if (!username.trim() || !password.trim()) {
+			setError("Por favor, preencha seu usuário e senha do SIGAA.");
+			return;
+		}
 
-	const handleCopyScript = () => {
+		setLoading(true);
+		setError(null);
 		sound.playPop();
-		navigator.clipboard.writeText(bookmarkletCode);
-		setCopiedScript(true);
-		setTimeout(() => setCopiedScript(false), 3000);
+
+		try {
+			const res = await api.syncUniversity({ username, password });
+			if (res.success && res.student) {
+				sound.playSuccess();
+				setSyncedData(res.student);
+				onSyncComplete(res.student);
+			} else if (res.error) {
+				setError(res.error);
+			}
+		} catch (err: any) {
+			setError(err.message || "Falha ao sincronizar com o SIGAA. Verifique suas credenciais.");
+		} finally {
+			setLoading(false);
+		}
 	};
 
 	const handleImportPastedCode = async () => {
@@ -141,15 +127,14 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 						<div>
 							<div className="flex items-center gap-2">
 								<h3 className="font-extrabold text-base tracking-tight">
-									Sincronização Oficial SIGAA UFPE
+									Sincronização SIGAA UFPE
 								</h3>
 								<span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-900/80 text-rose-200 border border-rose-300/20">
-									2 Abas Seguras
+									Login Direto
 								</span>
 							</div>
 							<p className="text-xs text-rose-200">
-								Faça login real no SIGAA e transfira seus dados sem riscos de
-								senha
+								Use seu usuário e senha do SIGAA para transferir seus dados
 							</p>
 						</div>
 					</div>
