@@ -62,7 +62,7 @@ export async function syncWithSigaa(username, password) {
 
     const currentUrl = page.url();
 
-    // 4. Validar se o login falhou
+    // 4. Validar se o login falhou ou não redirecionou para área logada
     const loginError = await page.evaluate(() => {
       const errorElem = document.querySelector('.erros, .error, .mensagemErro, #painel-erros, .info-erro');
       return errorElem ? errorElem.textContent.trim() : null;
@@ -74,22 +74,49 @@ export async function syncWithSigaa(username, password) {
       throw new Error(`Falha na autenticação do SIGAA: ${errorDetail}`);
     }
 
-    // 5. Extração do HTML da página inicial autenticada (discente.jsf)
+    // 5. Validar que a URL corrente realmente é do portal discente
+    if (!currentUrl.includes('/portais/discente/') && !currentUrl.includes('discente.jsf')) {
+      throw new Error(`Página inesperada após login (${currentUrl}). O Portal do Discente não foi alcançado.`);
+    }
+
+    // 6. Extração do HTML da página inicial autenticada (discente.jsf)
     console.log('[SIGAA Scraper] Autenticado com sucesso! Extraindo Portal do Discente...');
     const portalHtml = await page.evaluate(() => document.body.innerHTML);
 
-    // 6. Navegar para a página de Turmas Anteriores (turmas.jsf) para obter códigos/carga horária
+    // Validar se o HTML do portal contém a tabela do Portal do Discente (cabeçalho Componente Curricular)
+    const $portal = cheerio.load(portalHtml);
+    const hasPortalTable = $portal('table').toArray().some(table => {
+      const text = $portal(table).text().toLowerCase();
+      return text.includes('componente curricular');
+    });
+
+    if (!hasPortalTable) {
+      throw new Error('Sessão iniciada, mas o Portal do Discente não apresentou a tabela de componentes curriculares.');
+    }
+
+    // 7. Navegar para a página de Turmas Anteriores (turmas.jsf) para obter códigos/carga horária
     let turmasHtml = '';
+    let isPartialSync = false;
+    let syncMessage = 'Sincronização com o SIGAA UFPE realizada com sucesso!';
+
     try {
       const turmasUrl = `${SIGAA_BASE}/sigaa/portais/discente/turmas.jsf`;
       console.log(`[SIGAA Scraper] Acessando histórico de turmas: ${turmasUrl}`);
       await page.goto(turmasUrl, { waitUntil: 'domcontentloaded' });
+      
+      const turmasPageUrl = page.url();
+      if (turmasPageUrl.includes('verTelaLogin.do') || turmasPageUrl.includes('logar.do')) {
+        throw new Error('Sessão expirou ao tentar acessar turmas.jsf.');
+      }
+
       turmasHtml = await page.evaluate(() => document.body.innerHTML);
     } catch (turmasErr) {
-      console.warn('[SIGAA Scraper] Não foi possível carregar turmas.jsf:', turmasErr.message);
+      console.warn('[SIGAA Scraper] Aviso: Não foi possível carregar turmas.jsf:', turmasErr.message);
+      isPartialSync = true;
+      syncMessage = `Sincronização parcial: Dados do Portal do Discente obtidos, mas não foi possível consultar 'turmas.jsf' (${turmasErr.message}).`;
     }
 
-    // 7. Formatar dados extraídos estritamente
+    // 8. Formatar dados extraídos estritamente
     const studentData = formatSigaaScrapedData(portalHtml, turmasHtml, { matricula: username });
 
     if (!studentData.turmas || studentData.turmas.length === 0) {
@@ -98,8 +125,8 @@ export async function syncWithSigaa(username, password) {
 
     return {
       success: true,
-      mode: 'live_sigaa',
-      message: 'Sincronização com o SIGAA UFPE realizada com sucesso!',
+      mode: isPartialSync ? 'live_sigaa_partial' : 'live_sigaa',
+      message: syncMessage,
       student: studentData
     };
 
