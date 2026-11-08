@@ -45,10 +45,9 @@ export async function syncWithSigaa(username, password) {
     console.log(`[SIGAA Scraper] Acessando URL de login: ${loginUrl}`);
     await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
 
-    // 2. Aguardar o formulário de login e extrair action e campos dinâmicos
+    // 2. Aguardar o formulário de login e preencher credenciais
     await page.waitForSelector('input[name="user.login"]', { timeout: 10000 });
 
-    // Preencher usuário e senha
     await page.type('input[name="user.login"]', username);
     await page.type('input[name="user.senha"]', password);
 
@@ -70,13 +69,13 @@ export async function syncWithSigaa(username, password) {
     });
 
     if (loginError || currentUrl.includes('verTelaLogin.do') || currentUrl.includes('logar.do')) {
-      const errorDetail = loginError || 'Usuário ou senha incorretos, ou a sessão não pôde ser iniciada no SIGAA UFPE.';
+      const errorDetail = loginError || 'Usuário ou senha incorretos ou sessão inválida no SIGAA UFPE.';
       console.warn(`[SIGAA Scraper] Falha na autenticação: ${errorDetail}`);
       throw new Error(`Falha na autenticação do SIGAA: ${errorDetail}`);
     }
 
     // 5. Extração do HTML da página inicial autenticada (discente.jsf)
-    console.log('[SIGAA Scraper] Autenticado! Extraindo Portal do Discente...');
+    console.log('[SIGAA Scraper] Autenticado com sucesso! Extraindo Portal do Discente...');
     const portalHtml = await page.evaluate(() => document.body.innerHTML);
 
     // 6. Navegar para a página de Turmas Anteriores (turmas.jsf) para obter códigos/carga horária
@@ -87,15 +86,11 @@ export async function syncWithSigaa(username, password) {
       await page.goto(turmasUrl, { waitUntil: 'domcontentloaded' });
       turmasHtml = await page.evaluate(() => document.body.innerHTML);
     } catch (turmasErr) {
-      console.warn('[SIGAA Scraper] Não foi possível carregar turmas.jsf, prosseguindo apenas com Portal do Discente:', turmasErr.message);
+      console.warn('[SIGAA Scraper] Não foi possível carregar turmas.jsf:', turmasErr.message);
     }
 
     // 7. Formatar dados extraídos estritamente
     const studentData = formatSigaaScrapedData(portalHtml, turmasHtml, { matricula: username });
-
-    if (!studentData.turmas || studentData.turmas.length === 0) {
-      console.warn('[SIGAA Scraper] Nenhuma turma foi encontrada no Portal do Discente.');
-    }
 
     return {
       success: true,
