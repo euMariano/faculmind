@@ -11,7 +11,7 @@ import * as cheerio from 'cheerio';
 export function formatSigaaScrapedData(html, options = {}) {
   const $ = cheerio.load(html || '');
 
-  // 1. Extração do Nome do Aluno
+  // 1. Nome do Aluno
   let studentName = options.studentName || '';
   if (!studentName) {
     studentName = $(
@@ -22,29 +22,38 @@ export function formatSigaaScrapedData(html, options = {}) {
     const textMatch = html.match(/Nome:\s*<\/strong>\s*([^<]+)/i) || html.match(/Discente:\s*<\/strong>\s*([^<]+)/i);
     if (textMatch) studentName = textMatch[1].trim();
   }
+  if (!studentName) {
+    studentName = 'Discente UFPE';
+  }
 
-  // 2. Extração da Matrícula
+  // 2. Matrícula
   let matricula = options.matricula || '';
   if (!matricula) {
     const matMatch = html.match(/Matr[íi]cula:?\s*<\/strong>\s*(\d{7,12})/i) || html.match(/(\d{9,11})/);
     if (matMatch) matricula = matMatch[1].trim();
   }
+  if (!matricula) {
+    matricula = `${Date.now()}`.slice(-10);
+  }
 
-  // 3. Extração do Curso
+  // 3. Curso
   let course = options.course || '';
   if (!course) {
     const courseMatch = html.match(/Curso:?\s*<\/strong>\s*([^<]+)/i);
     if (courseMatch) course = courseMatch[1].trim();
   }
+  if (!course) {
+    course = 'Graduação UFPE';
+  }
 
-  // 4. Extração do CRA
+  // 4. CRA
   let cra = 0.0;
   const craMatch = html.match(/CRA:?\s*<\/strong>\s*([\d,\.]+)/i) || html.match(/Coeficiente[^:]*:\s*([\d,\.]+)/i);
   if (craMatch) {
     cra = parseFloat(craMatch[1].replace(',', '.')) || 0.0;
   }
 
-  // 5. Extração do Centro
+  // 5. Centro
   let center = 'CCSA - Centro de Ciências Sociais Aplicadas';
   const centerMatch = html.match(/Centro:?\s*<\/strong>\s*([^<]+)/i);
   if (centerMatch) {
@@ -66,7 +75,6 @@ export function formatSigaaScrapedData(html, options = {}) {
     ) {
       $(table).find('tr').each((rIdx, row) => {
         const rowText = $(row).text().trim();
-        // Pula linhas de cabeçalho
         if (
           rIdx === 0 || 
           rowText.toLowerCase().includes('componente curricular') ||
@@ -109,7 +117,13 @@ export function formatSigaaScrapedData(html, options = {}) {
                 horario = cell;
               }
 
-              if (cell.toLowerCase().includes('sala') || cell.toLowerCase().includes('bloco') || cell.toLowerCase().includes('auditório') || cell.toLowerCase().includes('ccsa') || cell.toLowerCase().includes('cin')) {
+              if (
+                cell.toLowerCase().includes('sala') || 
+                cell.toLowerCase().includes('bloco') || 
+                cell.toLowerCase().includes('auditório') || 
+                cell.toLowerCase().includes('ccsa') || 
+                cell.toLowerCase().includes('cin')
+              ) {
                 local = cell;
               }
 
@@ -149,7 +163,7 @@ export function formatSigaaScrapedData(html, options = {}) {
     }
   });
 
-  // Fallback caso não encontre em tabelas padrão
+  // Fallback caso não encontre turmas via tabela HTML
   if (turmas.length === 0) {
     $('.descricao-disciplina, .turma-discente, .item-turma').each((idx, el) => {
       const text = $(el).text().trim();
@@ -168,7 +182,7 @@ export function formatSigaaScrapedData(html, options = {}) {
     });
   }
 
-  // Geração de alertas automáticos com base no limite de faltas
+  // Alertas automáticos
   const alerts = [];
   turmas.forEach(t => {
     if (t.faltas >= 6) {
@@ -176,14 +190,15 @@ export function formatSigaaScrapedData(html, options = {}) {
     }
   });
 
+  // Retorno estrito alinhado à interface StudentAcademicRecord
   return {
-    matricula: matricula || `${Date.now()}`.slice(-10),
-    name: studentName || 'Discente UFPE',
-    course: course || 'Graduação UFPE',
-    center: center,
+    matricula,
+    name: studentName,
+    course,
+    center,
     institution: 'Universidade Federal de Pernambuco (UFPE)',
     currentSemester: '2026.1',
-    cra: cra,
+    cra,
     status: 'Regular / Ativo',
     turmas: turmas.length > 0 ? turmas : getFallbackTurmas(course),
     horasComplementares: {
@@ -226,7 +241,7 @@ export function parseSigaaText(text, options = {}) {
         faltas: 0,
         maxFaltasPermitidas: 15,
         presencaPercentual: 100,
-        notas: { unidade1: null, unidade2: null, mediaParcial: null },
+        notas: { unidade1: null, unidade2: null, unidade3: null, mediaParcial: null },
         status: 'Em Curso'
       });
     } else if (line.length > 8 && (line.includes('Cálculo') || line.includes('Gestão') || line.includes('Secretariado') || line.includes('Processos') || line.includes('Psicologia') || line.includes('Programação'))) {
@@ -238,7 +253,7 @@ export function parseSigaaText(text, options = {}) {
         faltas: 0,
         maxFaltasPermitidas: 15,
         presencaPercentual: 100,
-        notas: { unidade1: null, unidade2: null, mediaParcial: null },
+        notas: { unidade1: null, unidade2: null, unidade3: null, mediaParcial: null },
         status: 'Em Curso'
       });
     }
@@ -281,7 +296,7 @@ function getFallbackTurmas(course) {
         faltas: 2,
         maxFaltasPermitidas: 15,
         presencaPercentual: 96,
-        notas: { unidade1: 8.5, unidade2: 9.0, mediaParcial: 8.75 },
+        notas: { unidade1: 8.5, unidade2: 9.0, unidade3: null, mediaParcial: 8.75 },
         status: 'Em Curso'
       },
       {
@@ -291,7 +306,7 @@ function getFallbackTurmas(course) {
         faltas: 4,
         maxFaltasPermitidas: 15,
         presencaPercentual: 93,
-        notas: { unidade1: 6.5, unidade2: 7.0, mediaParcial: 6.75 },
+        notas: { unidade1: 6.5, unidade2: 7.0, unidade3: null, mediaParcial: 6.75 },
         status: 'Em Curso'
       }
     ];
@@ -305,7 +320,7 @@ function getFallbackTurmas(course) {
       faltas: 2,
       maxFaltasPermitidas: 15,
       presencaPercentual: 96,
-      notas: { unidade1: 8.5, unidade2: 9.0, mediaParcial: 8.75 },
+      notas: { unidade1: 8.5, unidade2: 9.0, unidade3: null, mediaParcial: 8.75 },
       status: 'Em Curso'
     },
     {
@@ -315,7 +330,7 @@ function getFallbackTurmas(course) {
       faltas: 6,
       maxFaltasPermitidas: 15,
       presencaPercentual: 90,
-      notas: { unidade1: 5.8, unidade2: 6.2, mediaParcial: 6.0 },
+      notas: { unidade1: 5.8, unidade2: 6.2, unidade3: null, mediaParcial: 6.0 },
       status: 'Atenção - Próximo da Média'
     }
   ];

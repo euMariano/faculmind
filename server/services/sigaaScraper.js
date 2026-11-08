@@ -139,7 +139,7 @@ export const DEMO_STUDENT_DATA = {
  */
 export async function syncWithSigaa(username, password, options = {}) {
   const demoMode = options.demoMode || false;
-  const course = options.course || 'Secretariado Executivo';
+  const course = options.course || '';
 
   // Se o modo demonstração for solicitado ou as credenciais forem para demonstração
   if (demoMode || username === 'demo' || !username || !password) {
@@ -156,7 +156,7 @@ export async function syncWithSigaa(username, password, options = {}) {
 
   let browser = null;
   try {
-    console.log(`[SIGAA Scraper] Iniciando navegação Puppeteer para usuário: ${username}...`);
+    console.log(`[SIGAA Scraper] Iniciando navegador Puppeteer para discente: ${username}...`);
     
     // 1. Iniciar browser (headless: true)
     browser = await puppeteer.launch({
@@ -171,25 +171,27 @@ export async function syncWithSigaa(username, password, options = {}) {
     });
 
     const page = await browser.newPage();
-    page.setDefaultNavigationTimeout(25000);
-    await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    page.setDefaultNavigationTimeout(30000);
+    await page.setUserAgent(
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    );
 
-    // Abre a página de login
+    // 1. Abrir a página de login
     const loginUrl = `${SIGAA_BASE}/sigaa/verTelaLogin.do`;
-    console.log(`[SIGAA Scraper] Acessando tela de login: ${loginUrl}`);
+    console.log(`[SIGAA Scraper] Acessando URL de login: ${loginUrl}`);
     await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
 
-    // 2. Preencher os campos de usuário e senha
+    // 2. Preencher os campos de login e senha
     await page.waitForSelector('input[name="user.login"]', { timeout: 10000 });
     await page.type('input[name="user.login"]', username);
     await page.type('input[name="user.senha"]', password);
 
-    // 3. Clicar no botão de submit e aguardar navegação
-    console.log('[SIGAA Scraper] Enviando formulário de login...');
-    const submitBtnSelector = 'input[type="submit"][value="Entrar"], input[type="submit"]';
-    
+    // 3. Clicar no botão de submissão e aguardar o redirecionamento
+    console.log('[SIGAA Scraper] Submetendo credenciais no formulário...');
+    const submitBtnSelector = 'input[type="submit"][value="Entrar"]';
+
     await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }).catch(() => {}),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {}),
       page.click(submitBtnSelector)
     ]);
 
@@ -202,30 +204,22 @@ export async function syncWithSigaa(username, password, options = {}) {
     });
 
     if (loginError || currentUrl.includes('verTelaLogin.do') || currentUrl.includes('logar.do')) {
-      const errorDetail = loginError || 'Usuário ou senha incorretos ou erro de autenticação no SIGAA UFPE.';
+      const errorDetail = loginError || 'Usuário ou senha incorretos, ou a sessão não pôde ser iniciada no SIGAA UFPE.';
       console.warn(`[SIGAA Scraper] Falha na autenticação: ${errorDetail}`);
       throw new Error(`Falha na autenticação do SIGAA: ${errorDetail}`);
     }
 
-    // 5. Extração dos dados do Portal do Discente
-    console.log('[SIGAA Scraper] Autenticado com sucesso! Extraindo dados da página do discente...');
-    
-    // Extrai dados brutos via page.evaluate
-    const extractedContent = await page.evaluate(() => {
-      return {
-        html: document.body.innerHTML,
-        pageTitle: document.title,
-        url: window.location.href
-      };
-    });
+    // 5. Extração dos dados brutos do Portal do Discente
+    console.log('[SIGAA Scraper] Autenticado! Extraindo HTML do Portal do Discente...');
+    const rawHtml = await page.evaluate(() => document.body.innerHTML);
 
-    // 6. Formatar dados através da função exportada em sigaaParser.js
-    const studentData = formatSigaaScrapedData(extractedContent.html, { course, matricula: username });
+    // 6. Formatar dados extraídos chamando o sigaaParser.js
+    const studentData = formatSigaaScrapedData(rawHtml, { course, matricula: username });
 
     return {
       success: true,
       mode: 'live_sigaa',
-      message: 'Dados sincronizados com sucesso a partir do SIGAA UFPE!',
+      message: 'Sincronização com o SIGAA UFPE realizada com sucesso!',
       student: studentData
     };
 
@@ -235,7 +229,7 @@ export async function syncWithSigaa(username, password, options = {}) {
   } finally {
     // 7. Garanta que no `finally` o `await browser.close()` seja executado
     if (browser) {
-      console.log('[SIGAA Scraper] Encerrando navegador Puppeteer...');
+      console.log('[SIGAA Scraper] Encerrando instância do browser...');
       await browser.close().catch(e => console.error('Erro ao fechar o browser:', e));
     }
   }
