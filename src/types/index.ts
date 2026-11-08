@@ -8,40 +8,42 @@ export type ActiveTab =
 
 export interface StudentTurma {
   id: string;
-  codigo?: string;
+  periodo?: string | null;
+  codigo?: string | null;
   disciplina: string;
-  turma?: string;
-  docente?: string;
-  horario?: string;
-  local?: string;
-  faltas: number;
-  maxFaltasPermitidas: number;
-  totalAulas?: number;
-  presencaPercentual: number;
-  notas: {
+  turma?: string | null;
+  cargaHoraria?: number | null;
+  docente?: string | null;
+  horario?: string | null;
+  local?: string | null;
+  faltas?: number | null;
+  maxFaltasPermitidas?: number | null;
+  totalAulas?: number | null;
+  presencaPercentual?: number | null;
+  notas?: {
     unidade1?: number | null;
     unidade2?: number | null;
     unidade3?: number | null;
     mediaParcial?: number | null;
-  };
-  status: string;
+  } | null;
+  status?: string | null;
 }
 
 export interface StudentAcademicRecord {
-  matricula: string;
-  name: string;
-  course: string;
-  center?: string;
+  matricula: string | null;
+  name: string | null;
+  course: string | null;
+  center?: string | null;
   institution: string;
-  currentSemester: string;
-  cra: number;
-  status: string;
+  currentSemester: string | null;
+  cra: number | null;
+  status: string | null;
   turmas: StudentTurma[];
   horasComplementares?: {
-    concluidas: number;
-    obrigatorias: number;
-    pendentes: number;
-  };
+    concluidas: number | null;
+    obrigatorias: number | null;
+    pendentes: number | null;
+  } | null;
   alerts?: string[];
   lastSyncAt: string;
   source: string;

@@ -1,6 +1,6 @@
 /**
  * SIGAA UFPE Scraper & University Data Extraction Service
- * Uses Puppeteer & Cheerio to extract real academic data from UFPE SIGAA
+ * Extrai dados estritamente reais das páginas autenticadas do SIGAA UFPE usando Puppeteer.
  */
 
 import puppeteer from 'puppeteer';
@@ -9,159 +9,20 @@ import { formatSigaaScrapedData } from './sigaaParser.js';
 
 const SIGAA_BASE = process.env.SIGAA_BASE_URL || 'https://sigaa.ufpe.br';
 
-export const DEMO_STUDENT_DATA = {
-  matricula: "2024104928",
-  name: "Mariano Ferreira (Discente Conectado)",
-  course: "Secretariado Executivo",
-  center: "CCSA - Centro de Ciências Sociais Aplicadas",
-  institution: "Universidade Federal de Pernambuco (UFPE)",
-  currentSemester: "2026.1",
-  cra: 8.42,
-  status: "Regular / Ativo",
-  turmas: [
-    {
-      id: "turma-1",
-      codigo: "SEC301",
-      disciplina: "Gestão de Processos e Documentação",
-      turma: "01",
-      docente: "Profa. Dra. Ana Carolina Bezerra",
-      horario: "Seg/Qua 18:30 - 20:10",
-      local: "CCSA - Bloco A Sala 104",
-      faltas: 2,
-      maxFaltasPermitidas: 15,
-      totalAulas: 60,
-      presencaPercentual: 96.6,
-      notas: {
-        unidade1: 8.5,
-        unidade2: 9.2,
-        unidade3: null,
-        mediaParcial: 8.85
-      },
-      status: "Em Curso (Excelente Aproveitamento)"
-    },
-    {
-      id: "turma-2",
-      codigo: "MAT102",
-      disciplina: "Cálculo e Análise Quantitativa",
-      turma: "03",
-      docente: "Prof. Dr. Marcos Vinicius Silva",
-      horario: "Ter/Qui 18:30 - 20:10",
-      local: "CCSA - Auditório B",
-      faltas: 6,
-      maxFaltasPermitidas: 15,
-      totalAulas: 60,
-      presencaPercentual: 90.0,
-      notas: {
-        unidade1: 5.8,
-        unidade2: 6.2,
-        unidade3: null,
-        mediaParcial: 6.0
-      },
-      status: "Atenção - Próximo da Média 7.0"
-    },
-    {
-      id: "turma-3",
-      codigo: "CIN050",
-      disciplina: "Automação e Inteligência Artificial em Gestão",
-      turma: "01",
-      docente: "Prof. Dr. Felipe Menezes (CIn)",
-      horario: "Sex 18:30 - 22:00",
-      local: "CIn - Laboratório Graduação 02",
-      faltas: 0,
-      maxFaltasPermitidas: 15,
-      totalAulas: 60,
-      presencaPercentual: 100.0,
-      notas: {
-        unidade1: 9.8,
-        unidade2: 9.5,
-        unidade3: null,
-        mediaParcial: 9.65
-      },
-      status: "Em Curso (Destaque Acadêmico)"
-    },
-    {
-      id: "turma-4",
-      codigo: "PSI220",
-      disciplina: "Psicologia Organizacional e Relações Humanas",
-      turma: "02",
-      docente: "Profa. Dra. Mariana Sampaio",
-      horario: "Qua 20:20 - 22:00",
-      local: "CFCH - Sala 302",
-      faltas: 4,
-      maxFaltasPermitidas: 15,
-      totalAulas: 60,
-      presencaPercentual: 93.3,
-      notas: {
-        unidade1: 8.0,
-        unidade2: null,
-        unidade3: null,
-        mediaParcial: 8.0
-      },
-      status: "Em Curso (Aprovando)"
-    },
-    {
-      id: "turma-5",
-      codigo: "DIR115",
-      disciplina: "Legislação e Compliance Secretarial",
-      turma: "01",
-      docente: "Prof. Dr. Roberto Cavalcanti",
-      horario: "Seg 20:20 - 22:00",
-      local: "CCSA - Bloco A Sala 102",
-      faltas: 1,
-      maxFaltasPermitidas: 15,
-      totalAulas: 60,
-      presencaPercentual: 98.3,
-      notas: {
-        unidade1: 7.5,
-        unidade2: 8.0,
-        unidade3: null,
-        mediaParcial: 7.75
-      },
-      status: "Em Curso (Aprovando)"
-    }
-  ],
-  horasComplementares: {
-    concluidas: 120,
-    obrigatorias: 200,
-    pendentes: 80
-  },
-  alerts: [
-    "⚠️ Atenção para as 6 faltas em Cálculo e Análise Quantitativa (limite de 15 faltas).",
-    "📅 Reajuste de matrícula do semestre 2026.1 finaliza em 18 de Abril.",
-    "🪙 Inscrições abertas para o Auxílio Permanência PROAES (R$ 550,00 + RU Grátis)."
-  ],
-  lastSyncAt: new Date().toISOString(),
-  source: "SIGAA"
-};
-
 /**
- * Sincroniza dados acadêmicos do SIGAA UFPE usando Puppeteer.
+ * Sincroniza dados acadêmicos do SIGAA UFPE efetuando o fluxo real de autenticação e navegação.
  * @param {string} username - Usuário/Matrícula do discente
  * @param {string} password - Senha do SIGAA
- * @param {object} options - Opções adicionais (ex: demoMode)
  */
-export async function syncWithSigaa(username, password, options = {}) {
-  const demoMode = options.demoMode || false;
-  const course = options.course || '';
-
-  // Modo de demonstração ou credenciais de simulação
-  if (demoMode || username === 'demo' || !username || !password) {
-    const student = JSON.parse(JSON.stringify(DEMO_STUDENT_DATA));
-    if (course) student.course = course;
-    student.lastSyncAt = new Date().toISOString();
-    return {
-      success: true,
-      mode: 'demo_simulation',
-      message: 'Dados acadêmicos carregados com sucesso (Ambiente UFPE).',
-      student
-    };
+export async function syncWithSigaa(username, password) {
+  if (!username || !password) {
+    throw new Error('Usuário e senha do SIGAA são obrigatórios.');
   }
 
   let browser = null;
   try {
-    console.log(`[SIGAA Scraper] Iniciando navegador Puppeteer para discente: ${username}...`);
+    console.log(`[SIGAA Scraper] Iniciando autenticação para discente: ${username}...`);
     
-    // 1. Iniciar browser (headless: true)
     browser = await puppeteer.launch({
       headless: true,
       args: [
@@ -174,7 +35,7 @@ export async function syncWithSigaa(username, password, options = {}) {
     });
 
     const page = await browser.newPage();
-    page.setDefaultNavigationTimeout(30000);
+    page.setDefaultNavigationTimeout(35000);
     await page.setUserAgent(
       'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     );
@@ -184,17 +45,19 @@ export async function syncWithSigaa(username, password, options = {}) {
     console.log(`[SIGAA Scraper] Acessando URL de login: ${loginUrl}`);
     await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
 
-    // 2. Preencher os campos de login e senha
+    // 2. Aguardar o formulário de login e extrair action e campos dinâmicos
     await page.waitForSelector('input[name="user.login"]', { timeout: 10000 });
+
+    // Preencher usuário e senha
     await page.type('input[name="user.login"]', username);
     await page.type('input[name="user.senha"]', password);
 
-    // 3. Clicar no botão de submissão e aguardar o redirecionamento
+    // 3. Submeter formulário de login
     console.log('[SIGAA Scraper] Submetendo credenciais no formulário...');
-    const submitBtnSelector = 'input[type="submit"][value="Entrar"]';
+    const submitBtnSelector = 'input[type="submit"][value="Entrar"], button[type="submit"]';
 
     await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {}),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
       page.click(submitBtnSelector)
     ]);
 
@@ -212,12 +75,27 @@ export async function syncWithSigaa(username, password, options = {}) {
       throw new Error(`Falha na autenticação do SIGAA: ${errorDetail}`);
     }
 
-    // 5. Extração dos dados brutos do Portal do Discente
-    console.log('[SIGAA Scraper] Autenticado! Extraindo HTML do Portal do Discente...');
-    const rawHtml = await page.evaluate(() => document.body.innerHTML);
+    // 5. Extração do HTML da página inicial autenticada (discente.jsf)
+    console.log('[SIGAA Scraper] Autenticado! Extraindo Portal do Discente...');
+    const portalHtml = await page.evaluate(() => document.body.innerHTML);
 
-    // 6. Formatar dados extraídos chamando o sigaaParser.js
-    const studentData = formatSigaaScrapedData(rawHtml, { course, matricula: username });
+    // 6. Navegar para a página de Turmas Anteriores (turmas.jsf) para obter códigos/carga horária
+    let turmasHtml = '';
+    try {
+      const turmasUrl = `${SIGAA_BASE}/sigaa/portais/discente/turmas.jsf`;
+      console.log(`[SIGAA Scraper] Acessando histórico de turmas: ${turmasUrl}`);
+      await page.goto(turmasUrl, { waitUntil: 'domcontentloaded' });
+      turmasHtml = await page.evaluate(() => document.body.innerHTML);
+    } catch (turmasErr) {
+      console.warn('[SIGAA Scraper] Não foi possível carregar turmas.jsf, prosseguindo apenas com Portal do Discente:', turmasErr.message);
+    }
+
+    // 7. Formatar dados extraídos estritamente
+    const studentData = formatSigaaScrapedData(portalHtml, turmasHtml, { matricula: username });
+
+    if (!studentData.turmas || studentData.turmas.length === 0) {
+      console.warn('[SIGAA Scraper] Nenhuma turma foi encontrada no Portal do Discente.');
+    }
 
     return {
       success: true,
@@ -230,7 +108,6 @@ export async function syncWithSigaa(username, password, options = {}) {
     console.error('[SIGAA Scraper Error]:', err.message);
     throw err;
   } finally {
-    // 7. Garanta que no `finally` o `await browser.close()` seja executado
     if (browser) {
       console.log('[SIGAA Scraper] Encerrando instância do browser...');
       await browser.close().catch(e => console.error('Erro ao fechar o browser:', e));
@@ -275,17 +152,6 @@ export async function scrapePublicUniversityNotices() {
     return notices.slice(0, 6);
   } catch (err) {
     console.warn('[PROAES Scraper Warning]:', err.message);
-    return [
-      {
-        title: "Edital PROAES 2026.1: Auxílio Permanência Discente e Moradia",
-        url: "https://www.ufpe.br/proaes",
-        source: "PROAES UFPE Oficial"
-      },
-      {
-        title: "Horários de Funcionamento do Restaurante Universitário (RU) - Campus Recife",
-        url: "https://www.ufpe.br/proaes/restaurante-universitario",
-        source: "PROAES UFPE Oficial"
-      }
-    ];
+    return [];
   }
 }

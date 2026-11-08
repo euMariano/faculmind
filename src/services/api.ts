@@ -29,8 +29,8 @@ export const api = {
     return res.json();
   },
 
-  // University Sync & Web Scraping (Passo 4 - SIGAA UFPE)
-  async syncUniversity(options: { username?: string; password?: string; demoMode?: boolean; course?: string }): Promise<{
+  // University Sync & Web Scraping (SIGAA UFPE - Dados Reais)
+  async syncUniversity(options: { username?: string; password?: string }): Promise<{
     success: boolean;
     mode: string;
     message: string;
@@ -42,7 +42,10 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(options)
     });
-    if (!res.ok) throw new Error('Falha ao sincronizar com SIGAA');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.details || err.error || 'Falha ao sincronizar com o SIGAA UFPE');
+    }
     return res.json();
   },
 
@@ -52,14 +55,13 @@ export const api = {
     return res.json();
   },
 
-  // 2-Tab SIGAA Real Sync Import
+  // Importação por Código da Página do SIGAA
   async importUniversityData(payload: {
     html?: string;
     rawText?: string;
     studentName?: string;
     matricula?: string;
     course?: string;
-    turmas?: any[];
   }): Promise<{ success: boolean; message: string; student: StudentAcademicRecord }> {
     const res = await fetch(`${API_BASE}/sync-university/import`, {
       method: 'POST',

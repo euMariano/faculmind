@@ -68,15 +68,19 @@ app.post('/api/chat', async (req, res) => {
 // -------------------------------------------------------------
 app.post('/api/sync-university', async (req, res) => {
   try {
-    const { username, password, demoMode, course } = req.body;
-    const result = await syncWithSigaa({ username, password, demoMode, course }); // Chamando a nova função
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ success: false, error: 'Usuário e senha são obrigatórios para a sincronização.' });
+    }
+
+    const result = await syncWithSigaa(username, password);
     if (result.success && result.student) {
       dataStore.saveStudentAcademicRecord(result.student);
     }
     res.json(result);
   } catch (err) {
     console.error('Error syncing university data:', err);
-    res.status(500).json({ success: false, error: 'Falha ao sincronizar com SIGAA UFPE', details: err.message });
+    res.status(400).json({ success: false, error: 'Falha ao sincronizar com SIGAA UFPE', details: err.message });
   }
 });
 
@@ -85,37 +89,23 @@ app.get('/api/sync-university/current', (req, res) => {
   res.json({ success: true, student: current });
 });
 
-// Import real session data from SIGAA 2nd Tab (Bookmarklet or Source Paste)
+// Import real session data from SIGAA Tab (HTML or Raw Text)
 app.post('/api/sync-university/import', (req, res) => {
   try {
-    const { html, rawText, studentName, matricula, course, turmas } = req.body;
+    const { html, rawText, studentName, matricula, course } = req.body;
     let parsedStudent = null;
 
-    if (turmas && Array.isArray(turmas) && turmas.length > 0) {
-      parsedStudent = {
-        name: studentName || 'Discente UFPE (Sessão SIGAA)',
-        matricula: matricula || `${Date.now()}`.slice(-10),
-        course: course || 'Graduação UFPE',
-        institution: 'Universidade Federal de Pernambuco (UFPE)',
-        currentSemester: '2026.1',
-        cra: 8.2,
-        status: 'Regular / Ativo',
-        turmas,
-        alerts: turmas.filter(t => t.faltas >= 6).map(t => `⚠️ ${t.faltas} faltas registradas em ${t.disciplina}`),
-        lastSyncAt: new Date().toISOString(),
-        source: 'Sessão Autenticada no SIGAA (Aba Oficial)'
-      };
-    } else if (html || rawText) {
+    if (html || rawText) {
       parsedStudent = parseSigaaContent(html || rawText, { studentName, matricula, course });
     } else {
-      return res.status(400).json({ error: 'Nenhum dado, tabela ou código HTML do SIGAA foi enviado.' });
+      return res.status(400).json({ error: 'Nenhum código HTML ou conteúdo do SIGAA foi enviado.' });
     }
 
     dataStore.saveStudentAcademicRecord(parsedStudent);
-    console.log(`[SIGAA 2-Tab Import] Sincronização concluída para: ${parsedStudent.name} (${parsedStudent.turmas.length} turmas)`);
+    console.log(`[SIGAA Import] Sincronização concluída para: ${parsedStudent.name || 'Discente'} (${parsedStudent.turmas.length} turmas)`);
     res.json({
       success: true,
-      message: 'Dados acadêmicos sincronizados com sucesso diretamente da sua sessão do SIGAA!',
+      message: 'Dados acadêmicos sincronizados a partir do conteúdo do SIGAA.',
       student: parsedStudent
     });
   } catch (err) {
@@ -133,7 +123,6 @@ app.post('/api/config/gemini-key', async (req, res) => {
     }
 
     const key = apiKey.trim();
-    // Validate with Gemini API
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(key);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -144,11 +133,9 @@ app.post('/api/config/gemini-key', async (req, res) => {
       return res.status(400).json({ error: 'A chave não retornou resposta do Google Gemini' });
     }
 
-    // Set in environment variables
     process.env.GEMINI_API_KEY = key;
     process.env.VITE_GEMINI_API_KEY = key;
 
-    // Update .env file
     const envPath = path.join(__dirname, '../.env');
     if (fs.existsSync(envPath)) {
       let envContent = fs.readFileSync(envPath, 'utf-8');
