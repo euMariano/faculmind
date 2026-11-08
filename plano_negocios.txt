@@ -1,0 +1,324 @@
+Plano de Negócios - Facul Mind (Guia SEBRAE Completo)
+
+1. Sumário Executivo
+1.1 - Resumo dos principais pontos do plano de negócio
+A Facul Mind é uma plataforma SaaS (Software as a Service) B2B voltada para
+Instituições de Ensino Superior (IES). O objetivo é centralizar a comunicação
+acadêmica,
+
+otimizar
+
+solicitações
+
+e
+
+integrar
+
+serviços
+
+de
+
+saúde
+
+mental
+
+(clínicas-escolas), reduzindo a evasão. O investimento inicial é de R$ 5.000,00, com
+custo fixo mensal de R$ 1.158,33 e ponto de equilíbrio de R$ 1.220,00. O
+faturamento virá de assinaturas anuais das IES.
+1.2 - Dados dos empreendedores, experiência profissional e atribuições
+Negócio desenvolvido pela equipe formada por Mariano Ferreira, Fernanda Costa,
+Etyene Maria, Sthefanny Araújo, Thalis Guilherme e Felipe Gonçalves. A equipe
+fundadora é composta por estudantes de Secretariado Executivo, unindo
+conhecimentos em desenvolvimento de software, estruturação financeira e
+empreendedorismo. Essa multiplicidade de perfis garante uma visão holística e
+inovadora para a gestão e operação técnica e administrativa da empresa.
+1.3 - Dados do empreendimento
+●​ Nome da Empresa: Facul Mind Tecnologia Ltda (Nome fantasia: Facul Mind).
+●​ CNPJ: A ser constituído.
+1.4 - Missão da empresa
+Tornar mais simples e acessível a integração e a vivência acadêmica para todos os
+perfis
+
+do
+
+ecossistema
+
+universitário
+
+(discentes, docentes, pesquisadores e
+
+administradores). Atuando como um hub e ponte do ambiente acadêmico geral, a
+Facul Mind promove a eficiência, o engajamento e o bem-estar, tendo a redução da
+evasão no Ensino Superior como uma de suas principais e naturais consequências
+positivas.
+1.5 - Setores de atividade
+A empresa atua no setor de Prestação de Serviços, especificamente no ramo de
+Tecnologia da Informação voltada para a Educação (EdTech). O modelo de
+operação é focado no desenvolvimento e licenciamento de software como serviço
+
+(SaaS), fornecendo infraestrutura digital B2B que resolve dores reais de gestão,
+vivência e comunicação nas Instituições de Ensino Superior.
+1.6 - Forma jurídica
+A forma jurídica escolhida é a Sociedade Limitada (Ltda). Essa estrutura é a mais
+adequada e segura para o negócio, pois permite a composição formal dos 6
+sócios-fundadores de forma equitativa, protegendo o patrimônio pessoal de cada um
+(sendo a responsabilidade restrita ao valor das cotas subscritas). Além disso,
+oferece robustez e maturidade legal para futuras captações de investimento e para o
+fechamento de grandes contratos B2B.
+1.7 - Enquadramento tributário
+A empresa será optante pelo Simples Nacional (Microempresa - ME), utilizando
+primordialmente o CNAE 7020-4/00 (Atividades de Consultoria em Gestão
+Empresarial) ou correspondente direto para SaaS e tecnologia. O Simples Nacional
+permite o recolhimento unificado de tributos, reduzindo a complexidade burocrática e
+a carga tributária inicial. O planejamento contábil incluirá o monitoramento do "Fator
+R" para garantir a otimização das alíquotas (focando no enquadramento no Anexo III
+em vez do Anexo V).
+1.8 - Capital social
+O Capital Social de fundação será de R$ 5.000,00 (cinco mil reais). Esse montante
+será subscrito e dividido em cotas devidamente registradas no Contrato Social entre
+os 6 fundadores. O capital social formaliza o peso de participação, assim como os
+direitos e deveres de cada sócio no negócio, além de compor a garantia mínima
+legal de operação e lastro financeiro da empresa perante fornecedores e parceiros.
+1.9 - Fonte de recursos
+O negócio operará em sua fase inicial de implantação com 100% de Recursos
+Próprios (Bootstrapping). Os sócios aportarão do próprio bolso o capital necessário
+para estruturar e legalizar a empresa. Esta decisão estratégica assegura
+independência nas decisões, preserva a propriedade intelectual da equipe (sem
+diluição precipitada de cotas para investidores externos) e evita qualquer tipo de
+endividamento bancário durante a fase de validação do Produto Mínimo Viável
+(MVP).
+
+2. Análise de Mercado
+2.1 - Estudo dos clientes
+●​ Público-alvo B2B: Universidades e Faculdades (públicas e privadas).
+●​ Tomadores de Decisão: Reitores, Diretores de Ensino, Diretores Financeiros
+e Coordenadores de Curso.
+●​ Motivadores
+
+de
+
+receita/repasses),
+
+Compra:
+fim
+
+da
+
+Redução
+
+da
+
+desorganização
+
+evasão
+da
+
+(aumento
+
+comunicação,
+
+de
+
+dados
+
+centralizados para tomada de decisão institucional.
+2.2 - Estudo dos concorrentes
+●​ Concorrentes Diretos (ERPs como SIGAA, TOTVS): Sistemas focados no
+administrativo-financeiro e notas, mas engessados, burocráticos e com
+péssima usabilidade para o dia a dia e engajamento do aluno.
+●​ Concorrentes Indiretos (WhatsApp, E-mail): Causam ruído, comunicação
+paralela, falta de segurança institucional e não fornecem dados gerenciais de
+acompanhamento de evasão.
+2.3 - Estudo dos fornecedores
+●​ Infraestrutura em Nuvem (Servidores/Banco de Dados): AWS, Google
+Cloud, Railway.
+●​ Serviços Auxiliares: Contabilidade terceirizada, assessoria jurídica.
+
+3. Plano de Marketing
+3.1 - Descrição dos principais produtos e serviços
+Uma aplicação Web e Mobile (MVP inicial focado em ferramentas tradicionais, sem
+IA). Módulos iniciais:
+1.​ Gestão da Comunicação: Avisos oficiais com push notifications e tracking de
+leitura.
+2.​ Central de Solicitações: Otimização de fluxos de secretaria.
+3.​ Painel Gerencial (Dashboard): Relatórios de uso para coordenadores.
+4.​ Integração Clínica-Escola: Agendamento simplificado para serviços de
+psicologia/saúde da IES.
+
+5.​ Hub de Integração Acadêmica e Networking: Espaço vital de vivência onde
+calouros são integrados (orientações sobre bolsas, processos de inscrição e
+horas complementares) e membros da comunidade se conectam (ex: alunos
+divulgando ideias para recrutar participantes em pesquisas e estimulando a
+formação de grupos de projetos multidisciplinares).
+3.2 - Preço
+Licenciamento Institucional Anual (Assinatura B2B).
+Ticket médio base estipulado: R$ 14.400,00/ano por IES (equivalente a R$ 1.200,00
+mensais).
+3.3 - Estratégias promocionais
+●​ Marketing Digital e Redes Sociais: Presença ativa no Instagram e outras
+plataformas para construir uma comunidade, validar o produto publicamente e
+se aproximar diretamente da base estudantil (gerando demanda orgânica que
+pressiona a adoção pelas reitorias).
+●​ Prospecção ativa (Outbound): Abordagens via LinkedIn para tomadores de
+decisão (Reitores, Pró-Reitores).
+●​ Eventos: Participação em congressos e feiras de gestão educacional
+superior.
+●​ Material Institucional: Focado na tese de "O bem-estar e a integração
+estudantil como alavancas de retenção financeira".
+3.4 - Estrutura de comercialização
+Venda direta B2B focada em "Prova de Conceito (PoC)". A Facul Mind é
+implementada gratuitamente por 7 dias em apenas um curso/coordenação. Findo o
+período sem cancelamento, o contrato anual é ativado e a ferramenta expandida
+para o restante da IES.
+3.5 - Localização do negócio
+O negócio é 100% digital (SaaS). A operação da equipe será em modelo remoto
+(Home Office), sem necessidade de ponto comercial físico para recepção de
+clientes, otimizando os custos fixos.
+
+4. Plano Operacional
+4.1 - Layout ou arranjo físico
+Operação remota. O "espaço físico" resume-se ao ambiente de trabalho na
+residência dos sócios, equipados com computadores e internet de alta velocidade.
+4.2 - Capacidade produtiva/comercial/serviços
+A infraestrutura em nuvem permite escalabilidade imediata para milhares de
+usuários simultâneos. O limitador inicial é a capacidade humana de Onboarding
+(implantação na IES), projetando a capacidade inicial segura de implantação de 5
+novas IES por mês pela equipe fundadora.
+4.3 - Processos operacionais
+6.​ Venda: Reunião online de demonstração e assinatura do contrato de PoC.
+7.​ Setup Técnica: Customização (White-label com cores/logo da IES) e carga
+de dados de alunos/disciplinas.
+8.​ Onboarding: Treinamento online para coordenadores, secretaria e corpo
+clínico.
+9.​ Suporte: Manutenção evolutiva e atendimento de dúvidas (Customer
+Success).
+4.4 - Necessidade de pessoal
+Inicialmente, os sócios assumirão de forma colaborativa as frentes de Tecnologia,
+Operações, Comercial e Financeiro. Futuras contratações focarão na área de
+Vendas (SDRs) e Suporte Técnico.
+
+5. Plano Financeiro
+(Baseado na viabilidade Lean Startup modelada e planilhada pela equipe)
+5.1 - Estimativa dos investimentos fixos
+●​ Computadores e equipamentos iniciais: R$ 2.500,00 (considerando aporte
+para infraestrutura básica de home-office dos sócios).
+5.2 - Capital de giro
+●​ Caixa mínimo para sustentar a operação nos primeiros meses de prospecção:
+R$ 1.500,00.
+5.3 - Investimentos pré-operacionais
+●​ Abertura de empresa (JUCEPE, e-CNPJ, serviços contábeis - Redesim), INPI
+e configuração de servidores: R$ 1.000,00.
+5.4 - Investimento total (resumo)
+Descrição dos Investimentos
+
+Valor (R$)
+
+1. Investimentos Fixos
+
+R$ 2.500,00
+
+2. Capital de Giro
+
+R$ 1.500,00
+
+3. Investimentos Pré-Operacionais
+
+R$ 1.000,00
+
+TOTAL
+
+R$ 5.000,00
+
+5.5 - Estimativa do faturamento mensal da empresa
+Serviço
+
+Quantidade
+
+Preço Mensal
+
+Faturamento Total
+
+R$ 1.200,00
+
+R$ 2.400,00
+
+Estimada
+Licença Facul Mind
+
+2
+
+(IES)
+
+5.6 - Estimativa do custo unitário de matéria-prima, materiais diretos e
+terceirizações
+Para um SaaS, não há matéria-prima física. O "custo unitário" limita-se ao custo de
+hospedagem rateado por usuário/instituição.
+5.7 - Estimativa dos custos de comercialização
+Impostos (Simples Nacional - Anexo III): ~6% sobre o faturamento bruto.
+No cenário de R$ 2.400,00, a reserva tributária estimada é de R$ 144,00 mensais.
+Custos extras de recebimento (ex: taxas de emissão de boletos ou Pix PJ) também
+devem ser considerados à parte.
+5.8 - Apuração dos custos dos materiais diretos e/ou mercadorias vendidas
+Não aplicável (prestação de serviço de software, sem mercadorias de reposição
+física).
+5.9 - Estimativa dos custos com mão de obra
+Não haverá contratação via CLT no MVP. A remuneração se dará via pró-labore.
+5.10 - Estimativa do custo com depreciação
+Depreciação de notebooks/equipamentos ao longo de 3 a 5 anos, provisionada em
+cerca de R$ 50,00 mensais (já incorporada aos custos fixos).
+
+5.11 - Estimativa dos custos fixos operacionais mensais
+Descrição
+
+Custo Total Mensal (R$)
+
+Hospedagem Web / Servidores Cloud R$ 250,00
+Honorários Contábeis e Ferramentas
+
+R$ 150,00
+
+Depreciação
+
+R$ 50,00
+
+Pró-labore base inicial e miscelâneas
+
+R$ 708,33
+
+Total
+
+R$ 1.158,33
+
+5.12 - Demonstrativo de resultados (Projeção Mensal Base - 2 IES)
+Indicador
+
+Valor (R$)
+
+1. Receita Total de Vendas
+
+R$ 2.400,00
+
+2. (-) Custos Variáveis / Impostos
+
+R$ 144,00
+
+3. (=) Margem de Contribuição
+
+R$ 2.256,00
+
+4. (-) Custos Fixos Totais
+
+R$ 1.158,33
+
+5. (=) Resultado Operacional (Lucro) R$ 1.097,67
+
+5.13 - Indicadores de viabilidade
+●​ 5.13.1 - Ponto de equilíbrio (PE): R$ 1.220,00. Apenas 1 licença já empata a
+operação; a segunda é lucro real.
+●​ 5.13.2 - Lucratividade: 45,7% (Lucro Líquido / Receita Total). Margem
+altamente competitiva proporcionada pela escala SaaS.
+●​ 5.13.3 - Rentabilidade: 21,9% ao mês.
+●​ 5.13.4 - Prazo de retorno do investimento (Payback): 4,5 meses. O
+investimento total de R$ 5.000,00 se paga em menos de um semestre.
+
+
