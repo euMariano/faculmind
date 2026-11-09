@@ -5,6 +5,7 @@
  */
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged, User, Auth } from 'firebase/auth'; // Importa Firebase Auth
 import { 
   getFirestore, 
   collection, 
@@ -27,28 +28,31 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || ""
 };
 
-export const isFirebaseConfigured = Boolean(
+export const isFirebaseConfigured = Boolean( // Verifica se a configuração básica existe e não é a de placeholder
   firebaseConfig.apiKey && 
   firebaseConfig.projectId && 
-  !firebaseConfig.apiKey.includes('sua_chave')
+  !firebaseConfig.apiKey.includes('sua_chave') &&
+  !firebaseConfig.apiKey.includes('YOUR_API_KEY')
 );
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
+let authInstance: Auth | null = null; // Instância do Firebase Auth
 
 if (isFirebaseConfigured) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
     db = getFirestore(app);
-    console.log('🔥 Firebase Firestore conectado com sucesso para chats em tempo real.');
+    authInstance = getAuth(app); // Inicializa o Auth
+    console.log('🔥 Firebase conectado com sucesso. Firestore e Auth disponíveis.');
   } catch (err) {
-    console.warn('⚠️ Falha ao inicializar Firebase. Operando via API Express:', err);
+    console.warn('⚠️ Falha ao inicializar Firebase SDKs. Algumas funcionalidades podem não funcionar:', err);
   }
 } else {
-  console.info('ℹ️ Firebase não configurado no .env. Operando com API Express sincronizada em tempo real.');
+  console.info('ℹ️ Firebase não configurado no .env ou chave placeholder. Operando com API Express e funcionalidades limitadas.');
 }
 
-export { db };
+export { db, authInstance }; // Exporta o authInstance
 
 // -------------------------------------------------------------
 // Real-time Coffee Table Chats Listener & Sender

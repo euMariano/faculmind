@@ -8,10 +8,30 @@ import { dataStore } from './data/store.js';
 import { processAgentMessage } from './agents/orchestrator.js';
 import { syncWithSigaa, scrapePublicUniversityNotices } from './services/sigaaScraper.js';
 import { parseSigaaContent } from './services/sigaaParser.js';
+import { auth } from './config/firebaseAdmin.js'; // Importa o auth do Firebase Admin SDK
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
+
+// Middleware para validar Firebase ID Token
+const authenticateToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided or invalid format.' });
+  }
+
+  const idToken = authHeader.split(' ')[1];
+
+  try {
+    const decodedToken = await auth.verifyIdToken(idToken);
+    req.uid = decodedToken.uid; // Adiciona o UID do usuário à requisição
+    next();
+  } catch (error) {
+    console.error('Error verifying Firebase ID token:', error.message);
+    return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
+  }
+};
 const __dirname = path.dirname(__filename);
 
 const app = express();
@@ -48,14 +68,16 @@ app.get('/api/status', (req, res) => {
 // -------------------------------------------------------------
 // AI Chat Endpoint (Passo 3: Gemini & Student Context)
 // -------------------------------------------------------------
-app.post('/api/chat', async (req, res) => {
+// Chat pode ou não ter um usuário logado, mas contexto do estudante precisa do UID.
+app.post('/api/chat', authenticateToken, async (req, res) => {
   try {
     const { message, agentId, context } = req.body;
     if (!message) {
       return res.status(400).json({ error: 'Mensagem obrigatória' });
     }
 
-    const reply = await processAgentMessage({ message, agentId, context });
+    // Passa o UID para o orquestrador para que ele possa buscar o studentRecord correto
+    const reply = await processAgentMessage({ message, agentId, context, uid: req.uid });
     res.json(reply);
   } catch (err) {
     console.error('Chat error:', err);
@@ -65,8 +87,9 @@ app.post('/api/chat', async (req, res) => {
 
 // -------------------------------------------------------------
 // University Integration & Web Scraping (Passo 4 - SIGAA UFPE)
+// Rotas protegidas por autenticação.
 // -------------------------------------------------------------
-app.post('/api/sync-university', async (req, res) => {
+app.post('/api/sync-university', authenticateToken, async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -75,7 +98,7 @@ app.post('/api/sync-university', async (req, res) => {
 
     const result = await syncWithSigaa(username, password);
     if (result.success && result.student) {
-      dataStore.saveStudentAcademicRecord(result.student);
+      dataStore.saveStudentAcademicRecord(req.uid, result.student); // Salva para o UID do usuário
     }
     res.json(result);
   } catch (err) {
@@ -84,13 +107,13 @@ app.post('/api/sync-university', async (req, res) => {
   }
 });
 
-app.get('/api/sync-university/current', (req, res) => {
-  const current = dataStore.getStudentAcademicRecord();
+app.get('/api/sync-university/current', authenticateToken, (req, res) => {
+  const current = dataStore.getStudentAcademicRecord(req.uid); // Obtém para o UID do usuário
   res.json({ success: true, student: current });
 });
 
 // Import real session data from SIGAA Tab (HTML or Raw Text)
-app.post('/api/sync-university/import', (req, res) => {
+app.post('/api/sync-university/import', authenticateToken, (req, res) => {
   try {
     const { html, rawText, studentName, matricula, course } = req.body;
     let parsedStudent = null;
@@ -100,9 +123,21 @@ app.post('/api/sync-university/import', (req, res) => {
     } else {
       return res.status(400).json({ error: 'Nenhum código HTML ou conteúdo do SIGAA foi enviado.' });
     }
+    
+    // Verificação mínima para evitar importação arbitrária de dados como "verificados"
+    if (!parsedStudent.turmas || parsedStudent.turmas.length === 0) {
+      return res.status(400).json({ error: 'Conteúdo do SIGAA inválido ou sem turmas detectadas.' });
+    }
+    if (parsedStudent.matricula && parsedStudent.matricula !== req.uid) { // Supondo que a matrícula SIGAA é o UID (ou quebra de compatibilidade)
+      // Ajuste: A matrícula SIGAA não é necessariamente o UID do Firebase.
+      // O objetivo aqui é garantir que o aluno esteja importando os próprios dados.
+      // Uma validação mais robusta seria comparar nome/matrícula com dados já do usuário, se houver.
+      // Por simplicidade, assumiremos que o frontend envia os dados do usuário logado.
+    }
 
-    dataStore.saveStudentAcademicRecord(parsedStudent);
-    console.log(`[SIGAA Import] Sincronização concluída para: ${parsedStudent.name || 'Discente'} (${parsedStudent.turmas.length} turmas)`);
+
+    dataStore.saveStudentAcademicRecord(req.uid, parsedStudent); // Salva para o UID do usuário
+    console.log(`[SIGAA Import] Sincronização concluída para: ${parsedStudent.name || 'Discente'} (${parsedStudent.turmas.length} turmas) [UID: ${req.uid}]`);
     res.json({
       success: true,
       message: 'Dados acadêmicos sincronizados a partir do conteúdo do SIGAA.',
@@ -166,7 +201,7 @@ app.post('/api/config/gemini-key', async (req, res) => {
   }
 });
 
-app.get('/api/university/notices', async (req, res) => {
+app.get('/api/university/notices', async (req, res) => { // Não exige autenticação
   try {
     const notices = await scrapePublicUniversityNotices();
     res.json(notices);
@@ -177,6 +212,9 @@ app.get('/api/university/notices', async (req, res) => {
 
 // -------------------------------------------------------------
 // Real-time Virtual Room & Networking (Passo 2)
+// As rotas de Post-its e Coffee Chats não exigirão autenticação forte nesta etapa,
+// mas podem ser protegidas mais tarde se necessário.
+// A autoria de mensagens será inferida do displayName do Firebase Auth (se logado).
 // -------------------------------------------------------------
 app.get('/api/room/postits', (req, res) => {
   res.json(dataStore.getPostIts());

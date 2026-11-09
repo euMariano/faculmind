@@ -74,6 +74,15 @@ export interface CoffeeChatMessage {
   timestamp?: string;
 }
 
+// Extensão para adicionar o UID do Firebase Admin à interface Request do Express
+declare global {
+  namespace Express {
+    interface Request {
+      uid?: string;
+    }
+  }
+}
+
 export interface Opportunity {
   id: string;
   title: string;

@@ -28,6 +28,8 @@
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
+    "firebase-admin": "^12.4.0",
+    "firebase": "^10.12.3",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.1",

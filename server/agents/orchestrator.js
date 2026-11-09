@@ -43,15 +43,16 @@ Mensagem do Aluno / Usuário:
   }
 }
 
-export async function processAgentMessage({ message, agentId = 'agy-ufpe', context = {} }) {
+export async function processAgentMessage({ message, agentId = 'agy-ufpe', context = {}, uid }) {
   const normalizedMsg = message.toLowerCase().trim();
 
   // Combine provided context with server-side synced academic data
-  const studentRecord = context.student || dataStore.getStudentAcademicRecord();
+  // Passa o UID para buscar o registro acadêmico do usuário correto
+  const studentRecord = context.student || (uid ? dataStore.getStudentAcademicRecord(uid) : null);
   const fullContext = {
     ...context,
     student: studentRecord,
-    opportunities: dataStore.getOpportunities().slice(0, 3)
+    opportunities: dataStore.getOpportunities().slice(0, 3) // Oportunidades são globais por enquanto
   };
 
   // Route based on agentId or intent

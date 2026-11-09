@@ -15,14 +15,24 @@ import {
   CoffeeChatMessage 
 } from '../types';
 
+import { useAuth } from '../context/AuthContext'; // Importa o hook useAuth
+
 const API_BASE = '/api';
 
-export const api = {
+// Helper para adicionar o token de autenticação
+const getAuthHeaders = async (getToken: () => Promise<string | null>) => {
+  const token = await getToken();
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
+// API refatorada para usar o contexto de autenticação
+export const api = (getToken: () => Promise<string | null>) => ({
   // Chat (Passo 3)
   async sendChatMessage(message: string, agentId?: string, context?: Record<string, unknown>) {
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
     const res = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ message, agentId, context })
     });
     if (!res.ok) throw new Error('Falha na resposta do assistente');
@@ -37,9 +47,10 @@ export const api = {
     student?: StudentAcademicRecord;
     error?: string;
   }> {
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
     const res = await fetch(`${API_BASE}/sync-university`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(options)
     });
     if (!res.ok) {
@@ -50,7 +61,8 @@ export const api = {
   },
 
   async getCurrentUniversityData(): Promise<{ success: boolean; student: StudentAcademicRecord | null }> {
-    const res = await fetch(`${API_BASE}/sync-university/current`);
+    const headers = await getAuthHeaders(getToken);
+    const res = await fetch(`${API_BASE}/sync-university/current`, { headers });
     if (!res.ok) throw new Error('Falha ao obter histórico acadêmico');
     return res.json();
   },
@@ -63,9 +75,10 @@ export const api = {
     matricula?: string;
     course?: string;
   }): Promise<{ success: boolean; message: string; student: StudentAcademicRecord }> {
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
     const res = await fetch(`${API_BASE}/sync-university/import`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
@@ -77,9 +90,11 @@ export const api = {
 
   // Dynamic Gemini API Key Config
   async saveGeminiKey(apiKey: string): Promise<{ success: boolean; message: string }> {
+    // Esta rota pode ser protegida se a chave Gemini for por usuário
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) }; 
     const res = await fetch(`${API_BASE}/config/gemini-key`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ apiKey })
     });
     if (!res.ok) {
@@ -89,19 +104,19 @@ export const api = {
     return res.json();
   },
 
-  async getApiStatus() {
+  async getApiStatus() { // Não exige autenticação
     const res = await fetch(`${API_BASE}/status`);
     if (!res.ok) throw new Error('Falha ao verificar status da API');
     return res.json();
   },
 
-  async getUniversityNotices(): Promise<UniversityNotice[]> {
+  async getUniversityNotices(): Promise<UniversityNotice[]> { // Não exige autenticação
     const res = await fetch(`${API_BASE}/university/notices`);
     if (!res.ok) throw new Error('Falha ao obter notícias da universidade');
     return res.json();
   },
 
-  // Real-time Virtual Room & Networking (Passo 2)
+  // Real-time Virtual Room & Networking (Passo 2) - Não protegidas por token nesta etapa
   async getPostIts(): Promise<PostIt[]> {
     const res = await fetch(`${API_BASE}/room/postits`);
     if (!res.ok) throw new Error('Falha ao obter post-its');
@@ -156,7 +171,7 @@ export const api = {
   async applyOpportunity(id: string, candidate: { studentName: string; studentCourse: string; studentEmail: string }) {
     const res = await fetch(`${API_BASE}/radar/opportunities/${id}/apply`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) },
       body: JSON.stringify(candidate)
     });
     if (!res.ok) throw new Error('Falha ao enviar candidatura');
@@ -165,15 +180,17 @@ export const api = {
 
   // Tickets
   async getTickets(): Promise<Ticket[]> {
-    const res = await fetch(`${API_BASE}/tickets`);
+    const headers = await getAuthHeaders(getToken);
+    const res = await fetch(`${API_BASE}/tickets`, { headers });
     if (!res.ok) throw new Error('Falha ao obter manifestações');
     return res.json();
   },
 
   async createTicket(ticket: Partial<Ticket>): Promise<Ticket> {
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
     const res = await fetch(`${API_BASE}/tickets`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(ticket)
     });
     if (!res.ok) throw new Error('Falha ao registrar manifestação');
@@ -182,15 +199,17 @@ export const api = {
 
   // Clinic
   async getClinicAppointments(): Promise<ClinicAppointment[]> {
-    const res = await fetch(`${API_BASE}/clinic`);
+    const headers = await getAuthHeaders(getToken);
+    const res = await fetch(`${API_BASE}/clinic`, { headers });
     if (!res.ok) throw new Error('Falha ao obter agendamentos clínicos');
     return res.json();
   },
 
   async createClinicAppointment(appt: Partial<ClinicAppointment>): Promise<ClinicAppointment> {
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
     const res = await fetch(`${API_BASE}/clinic`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(appt)
     });
     if (!res.ok) throw new Error('Falha ao solicitar acolhimento');
@@ -199,15 +218,17 @@ export const api = {
 
   // Permanência Stats
   async getPermanencia(): Promise<PermanenciaStats> {
-    const res = await fetch(`${API_BASE}/permanencia`);
+    const headers = await getAuthHeaders(getToken);
+    const res = await fetch(`${API_BASE}/permanencia`, { headers });
     if (!res.ok) throw new Error('Falha ao obter estatísticas de permanência');
     return res.json();
   },
 
   async submitPermanencia(survey: { mood: string; notes?: string; academicChallenge?: string; financialChallenge?: string }) {
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
     const res = await fetch(`${API_BASE}/permanencia`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(survey)
     });
     if (!res.ok) throw new Error('Falha ao registrar diagnóstico');
@@ -216,15 +237,17 @@ export const api = {
 
   // Enterprise
   async getEnterpriseData(): Promise<EnterpriseState> {
-    const res = await fetch(`${API_BASE}/enterprise`);
+    const headers = await getAuthHeaders(getToken);
+    const res = await fetch(`${API_BASE}/enterprise`, { headers });
     if (!res.ok) throw new Error('Falha ao obter dados empresariais');
     return res.json();
   },
 
   async updateOrgChart(organization: OrgNode[]): Promise<OrgNode[]> {
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
     const res = await fetch(`${API_BASE}/enterprise/organization`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ organization })
     });
     if (!res.ok) throw new Error('Falha ao atualizar organograma');
@@ -232,9 +255,10 @@ export const api = {
   },
 
   async addWorkflow(workflow: Partial<Workflow>): Promise<Workflow> {
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
     const res = await fetch(`${API_BASE}/enterprise/workflows`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(workflow)
     });
     if (!res.ok) throw new Error('Falha ao salvar fluxo');
@@ -242,17 +266,20 @@ export const api = {
   },
 
   async toggleChecklist(id: string): Promise<ChecklistItem> {
+    const headers = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/enterprise/checklists/${id}/toggle`, {
-      method: 'PUT'
+      method: 'PUT',
+      headers
     });
     if (!res.ok) throw new Error('Falha ao alternar checklist');
     return res.json();
   },
 
   async addChecklist(item: Partial<ChecklistItem>): Promise<ChecklistItem> {
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
     const res = await fetch(`${API_BASE}/enterprise/checklists`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(item)
     });
     if (!res.ok) throw new Error('Falha ao adicionar tarefa');
@@ -260,9 +287,10 @@ export const api = {
   },
 
   async updateSwot(swot: Partial<SwotData>): Promise<SwotData> {
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
     const res = await fetch(`${API_BASE}/enterprise/swot`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(swot)
     });
     if (!res.ok) throw new Error('Falha ao salvar SWOT');
@@ -270,12 +298,13 @@ export const api = {
   },
 
   async addDocument(doc: Partial<EnterpriseDocument>): Promise<EnterpriseDocument> {
+    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
     const res = await fetch(`${API_BASE}/enterprise/documents`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(doc)
     });
     if (!res.ok) throw new Error('Falha ao salvar documento');
     return res.json();
   }
-};
+});
