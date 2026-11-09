@@ -15,24 +15,22 @@ import {
   CoffeeChatMessage 
 } from '../types';
 
-import { useAuth } from '../context/AuthContext'; // Importa o hook useAuth
-
 const API_BASE = '/api';
 
-// Helper para adicionar o token de autenticação
-const getAuthHeaders = async (getToken: () => Promise<string | null>) => {
+// Helper para adicionar o token de autenticação garantindo compatibilidade com HeadersInit
+const getAuthHeaders = async (getToken?: () => Promise<string | null>): Promise<Record<string, string>> => {
+  if (!getToken) return {};
   const token = await getToken();
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
-// API refatorada para usar o contexto de autenticação
-export const api = (getToken: () => Promise<string | null>) => ({
+export const createApi = (getToken?: () => Promise<string | null>) => ({
   // Chat (Passo 3)
   async sendChatMessage(message: string, agentId?: string, context?: Record<string, unknown>) {
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ message, agentId, context })
     });
     if (!res.ok) throw new Error('Falha na resposta do assistente');
@@ -47,10 +45,10 @@ export const api = (getToken: () => Promise<string | null>) => ({
     student?: StudentAcademicRecord;
     error?: string;
   }> {
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/sync-university`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(options)
     });
     if (!res.ok) {
@@ -61,8 +59,8 @@ export const api = (getToken: () => Promise<string | null>) => ({
   },
 
   async getCurrentUniversityData(): Promise<{ success: boolean; student: StudentAcademicRecord | null }> {
-    const headers = await getAuthHeaders(getToken);
-    const res = await fetch(`${API_BASE}/sync-university/current`, { headers });
+    const authHeaders = await getAuthHeaders(getToken);
+    const res = await fetch(`${API_BASE}/sync-university/current`, { headers: authHeaders });
     if (!res.ok) throw new Error('Falha ao obter histórico acadêmico');
     return res.json();
   },
@@ -75,10 +73,10 @@ export const api = (getToken: () => Promise<string | null>) => ({
     matricula?: string;
     course?: string;
   }): Promise<{ success: boolean; message: string; student: StudentAcademicRecord }> {
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/sync-university/import`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(payload)
     });
     if (!res.ok) {
@@ -90,11 +88,10 @@ export const api = (getToken: () => Promise<string | null>) => ({
 
   // Dynamic Gemini API Key Config
   async saveGeminiKey(apiKey: string): Promise<{ success: boolean; message: string }> {
-    // Esta rota pode ser protegida se a chave Gemini for por usuário
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) }; 
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/config/gemini-key`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ apiKey })
     });
     if (!res.ok) {
@@ -104,19 +101,19 @@ export const api = (getToken: () => Promise<string | null>) => ({
     return res.json();
   },
 
-  async getApiStatus() { // Não exige autenticação
+  async getApiStatus() {
     const res = await fetch(`${API_BASE}/status`);
     if (!res.ok) throw new Error('Falha ao verificar status da API');
     return res.json();
   },
 
-  async getUniversityNotices(): Promise<UniversityNotice[]> { // Não exige autenticação
+  async getUniversityNotices(): Promise<UniversityNotice[]> {
     const res = await fetch(`${API_BASE}/university/notices`);
     if (!res.ok) throw new Error('Falha ao obter notícias da universidade');
     return res.json();
   },
 
-  // Real-time Virtual Room & Networking (Passo 2) - Não protegidas por token nesta etapa
+  // Real-time Virtual Room & Networking (Passo 2)
   async getPostIts(): Promise<PostIt[]> {
     const res = await fetch(`${API_BASE}/room/postits`);
     if (!res.ok) throw new Error('Falha ao obter post-its');
@@ -169,9 +166,10 @@ export const api = (getToken: () => Promise<string | null>) => ({
   },
 
   async applyOpportunity(id: string, candidate: { studentName: string; studentCourse: string; studentEmail: string }) {
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/radar/opportunities/${id}/apply`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(candidate)
     });
     if (!res.ok) throw new Error('Falha ao enviar candidatura');
@@ -180,17 +178,17 @@ export const api = (getToken: () => Promise<string | null>) => ({
 
   // Tickets
   async getTickets(): Promise<Ticket[]> {
-    const headers = await getAuthHeaders(getToken);
-    const res = await fetch(`${API_BASE}/tickets`, { headers });
+    const authHeaders = await getAuthHeaders(getToken);
+    const res = await fetch(`${API_BASE}/tickets`, { headers: authHeaders });
     if (!res.ok) throw new Error('Falha ao obter manifestações');
     return res.json();
   },
 
   async createTicket(ticket: Partial<Ticket>): Promise<Ticket> {
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/tickets`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(ticket)
     });
     if (!res.ok) throw new Error('Falha ao registrar manifestação');
@@ -199,17 +197,17 @@ export const api = (getToken: () => Promise<string | null>) => ({
 
   // Clinic
   async getClinicAppointments(): Promise<ClinicAppointment[]> {
-    const headers = await getAuthHeaders(getToken);
-    const res = await fetch(`${API_BASE}/clinic`, { headers });
+    const authHeaders = await getAuthHeaders(getToken);
+    const res = await fetch(`${API_BASE}/clinic`, { headers: authHeaders });
     if (!res.ok) throw new Error('Falha ao obter agendamentos clínicos');
     return res.json();
   },
 
   async createClinicAppointment(appt: Partial<ClinicAppointment>): Promise<ClinicAppointment> {
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/clinic`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(appt)
     });
     if (!res.ok) throw new Error('Falha ao solicitar acolhimento');
@@ -218,17 +216,17 @@ export const api = (getToken: () => Promise<string | null>) => ({
 
   // Permanência Stats
   async getPermanencia(): Promise<PermanenciaStats> {
-    const headers = await getAuthHeaders(getToken);
-    const res = await fetch(`${API_BASE}/permanencia`, { headers });
+    const authHeaders = await getAuthHeaders(getToken);
+    const res = await fetch(`${API_BASE}/permanencia`, { headers: authHeaders });
     if (!res.ok) throw new Error('Falha ao obter estatísticas de permanência');
     return res.json();
   },
 
   async submitPermanencia(survey: { mood: string; notes?: string; academicChallenge?: string; financialChallenge?: string }) {
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/permanencia`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(survey)
     });
     if (!res.ok) throw new Error('Falha ao registrar diagnóstico');
@@ -237,17 +235,17 @@ export const api = (getToken: () => Promise<string | null>) => ({
 
   // Enterprise
   async getEnterpriseData(): Promise<EnterpriseState> {
-    const headers = await getAuthHeaders(getToken);
-    const res = await fetch(`${API_BASE}/enterprise`, { headers });
+    const authHeaders = await getAuthHeaders(getToken);
+    const res = await fetch(`${API_BASE}/enterprise`, { headers: authHeaders });
     if (!res.ok) throw new Error('Falha ao obter dados empresariais');
     return res.json();
   },
 
   async updateOrgChart(organization: OrgNode[]): Promise<OrgNode[]> {
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/enterprise/organization`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ organization })
     });
     if (!res.ok) throw new Error('Falha ao atualizar organograma');
@@ -255,10 +253,10 @@ export const api = (getToken: () => Promise<string | null>) => ({
   },
 
   async addWorkflow(workflow: Partial<Workflow>): Promise<Workflow> {
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/enterprise/workflows`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(workflow)
     });
     if (!res.ok) throw new Error('Falha ao salvar fluxo');
@@ -266,20 +264,20 @@ export const api = (getToken: () => Promise<string | null>) => ({
   },
 
   async toggleChecklist(id: string): Promise<ChecklistItem> {
-    const headers = await getAuthHeaders(getToken);
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/enterprise/checklists/${id}/toggle`, {
       method: 'PUT',
-      headers
+      headers: authHeaders
     });
     if (!res.ok) throw new Error('Falha ao alternar checklist');
     return res.json();
   },
 
   async addChecklist(item: Partial<ChecklistItem>): Promise<ChecklistItem> {
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/enterprise/checklists`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(item)
     });
     if (!res.ok) throw new Error('Falha ao adicionar tarefa');
@@ -287,10 +285,10 @@ export const api = (getToken: () => Promise<string | null>) => ({
   },
 
   async updateSwot(swot: Partial<SwotData>): Promise<SwotData> {
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/enterprise/swot`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(swot)
     });
     if (!res.ok) throw new Error('Falha ao salvar SWOT');
@@ -298,13 +296,18 @@ export const api = (getToken: () => Promise<string | null>) => ({
   },
 
   async addDocument(doc: Partial<EnterpriseDocument>): Promise<EnterpriseDocument> {
-    const headers = { 'Content-Type': 'application/json', ...(await getAuthHeaders(getToken)) };
+    const authHeaders = await getAuthHeaders(getToken);
     const res = await fetch(`${API_BASE}/enterprise/documents`, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify(doc)
     });
     if (!res.ok) throw new Error('Falha ao salvar documento');
     return res.json();
   }
 });
+
+export type ApiService = ReturnType<typeof createApi>;
+
+// Instância padrão para componentes que utilizam sem token
+export const api = createApi();

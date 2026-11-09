@@ -8,15 +8,12 @@ import { VirtualRoom3D } from './components/academic/VirtualRoom3D';
 import { DashboardCoordinator } from './components/institutional/DashboardCoordinator';
 import { EnterprisePlatform } from './components/enterprise/EnterprisePlatform';
 import { FaculMindChatModal } from './components/chat/FaculMindChatModal';
-import { api } from './services/api';
-import { sound } from './services/sound';
-import { useAuth } from './context/AuthContext'; // Importa o hook de autenticação
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { authInstance } from './services/firebase'; // Importa a instância de auth
+import { createApi } from './services/api';
+import { useAuth } from './context/AuthContext';
 
 export const App: React.FC = () => {
-  const { currentUser, uid, loading, login, signup, logout, getToken } = useAuth(); // Usa o contexto de autenticação
-  const authenticatedApi = api(getToken); // Inicializa a API com o método de obtenção de token
+  const { currentUser, uid, loading, login, signup, logout, getToken } = useAuth();
+  const authenticatedApi = createApi(getToken);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('academic');
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -28,7 +25,6 @@ export const App: React.FC = () => {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Carregar registro acadêmico do usuário autenticado
   useEffect(() => {
     if (!loading && currentUser) {
       authenticatedApi.getCurrentUniversityData()
@@ -36,7 +32,7 @@ export const App: React.FC = () => {
           if (res.success && res.student) {
             setSyncedStudent(res.student);
           } else {
-            setSyncedStudent(null); // Limpar se não houver dados para o usuário
+            setSyncedStudent(null);
           }
         })
         .catch((err) => {
@@ -44,10 +40,9 @@ export const App: React.FC = () => {
           setSyncedStudent(null);
         });
     } else if (!loading && !currentUser) {
-      // Limpar dados ao deslogar
       setSyncedStudent(null);
     }
-  }, [loading, currentUser, uid]); // Recarrega quando o estado de autenticação muda
+  }, [loading, currentUser, uid]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,7 +106,6 @@ export const App: React.FC = () => {
     );
   }
 
-  // Se não estiver autenticado, mostrar tela de login
   if (!currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-ufpe-burgundy to-red-800 p-4">
@@ -166,16 +160,14 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fbfbf9] text-slate-800">
-      {/* Top Navbar */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         openChat={(agent) => handleOpenChat(agent)}
-        onLogout={handleLogout} // Adiciona botão de logout na Navbar
+        onLogout={handleLogout}
         currentUserEmail={currentUser.email || 'Usuário'}
       />
 
-      {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {activeTab === 'academic' && (
           <AcademicPortal
@@ -183,7 +175,7 @@ export const App: React.FC = () => {
             navigateToTab={setActiveTab}
             syncedStudent={syncedStudent}
             onSyncStudent={(student) => setSyncedStudent(student)}
-            api={authenticatedApi} // Passa a API autenticada
+            api={authenticatedApi}
           />
         )}
         {activeTab === 'opportunities' && <OpportunitiesFeed api={authenticatedApi} />}
@@ -195,7 +187,6 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Floating Multi-Agent Chat Assistant */}
       <FaculMindChatModal
         isOpen={isChatOpen}
         onClose={() => {
@@ -204,12 +195,11 @@ export const App: React.FC = () => {
         }}
         defaultAgent={chatAgentId}
         onNavigateAction={handleNavigateFromChat}
-        contextData={{ student: syncedStudent, uid: currentUser.uid }} // Passa UID para o contexto do chat
+        contextData={{ student: syncedStudent, uid: currentUser.uid }}
         initialPrompt={chatInitialPrompt}
-        api={authenticatedApi} // Passa a API autenticada para o chat
+        api={authenticatedApi}
       />
 
-      {/* Footer */}
       <footer className="bg-white border-t border-slate-200 mt-12 py-8 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
