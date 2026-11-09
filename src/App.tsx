@@ -8,12 +8,12 @@ import { VirtualRoom3D } from './components/academic/VirtualRoom3D';
 import { DashboardCoordinator } from './components/institutional/DashboardCoordinator';
 import { EnterprisePlatform } from './components/enterprise/EnterprisePlatform';
 import { FaculMindChatModal } from './components/chat/FaculMindChatModal';
-import { createApi } from './services/api';
 import { useAuth } from './context/AuthContext';
+import { ApiProvider, useApi } from './context/ApiContext';
 
-export const App: React.FC = () => {
-  const { currentUser, uid, loading, login, signup, logout, getToken } = useAuth();
-  const authenticatedApi = createApi(getToken);
+const AppContent: React.FC = () => {
+  const { currentUser, uid, loading, login, signup, logout } = useAuth();
+  const api = useApi();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('academic');
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -27,7 +27,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     if (!loading && currentUser) {
-      authenticatedApi.getCurrentUniversityData()
+      api.getCurrentUniversityData()
         .then(res => {
           if (res.success && res.student) {
             setSyncedStudent(res.student);
@@ -42,7 +42,7 @@ export const App: React.FC = () => {
     } else if (!loading && !currentUser) {
       setSyncedStudent(null);
     }
-  }, [loading, currentUser, uid]);
+  }, [loading, currentUser, uid, api]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,15 +175,14 @@ export const App: React.FC = () => {
             navigateToTab={setActiveTab}
             syncedStudent={syncedStudent}
             onSyncStudent={(student) => setSyncedStudent(student)}
-            api={authenticatedApi}
           />
         )}
-        {activeTab === 'opportunities' && <OpportunitiesFeed api={authenticatedApi} />}
+        {activeTab === 'opportunities' && <OpportunitiesFeed />}
         {activeTab === 'pausa-mind' && <PausaMindHub />}
-        {activeTab === 'virtual-room' && <VirtualRoom3D api={authenticatedApi} currentUser={currentUser} />}
+        {activeTab === 'virtual-room' && <VirtualRoom3D currentUser={currentUser} />}
         {activeTab === 'coordinator' && <DashboardCoordinator />}
         {activeTab === 'enterprise' && (
-          <EnterprisePlatform openChat={(agent) => handleOpenChat(agent)} api={authenticatedApi} />
+          <EnterprisePlatform openChat={(agent) => handleOpenChat(agent)} />
         )}
       </main>
 
@@ -197,7 +196,6 @@ export const App: React.FC = () => {
         onNavigateAction={handleNavigateFromChat}
         contextData={{ student: syncedStudent, uid: currentUser.uid }}
         initialPrompt={chatInitialPrompt}
-        api={authenticatedApi}
       />
 
       <footer className="bg-white border-t border-slate-200 mt-12 py-8 text-xs text-slate-500">
@@ -221,6 +219,14 @@ export const App: React.FC = () => {
         </div>
       </footer>
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <ApiProvider>
+      <AppContent />
+    </ApiProvider>
   );
 };
 

@@ -18,13 +18,12 @@ import {
 const API_BASE = '/api';
 
 // Helper para adicionar o token de autenticação garantindo compatibilidade com HeadersInit
-const getAuthHeaders = async (getToken?: () => Promise<string | null>): Promise<Record<string, string>> => {
-  if (!getToken) return {};
+const getAuthHeaders = async (getToken: () => Promise<string | null>): Promise<Record<string, string>> => {
   const token = await getToken();
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
-export const createApi = (getToken?: () => Promise<string | null>) => ({
+export const createApi = (getToken: () => Promise<string | null>) => ({
   // Chat (Passo 3)
   async sendChatMessage(message: string, agentId?: string, context?: Record<string, unknown>) {
     const authHeaders = await getAuthHeaders(getToken);
@@ -308,6 +307,3 @@ export const createApi = (getToken?: () => Promise<string | null>) => ({
 });
 
 export type ApiService = ReturnType<typeof createApi>;
-
-// Instância padrão para componentes que utilizam sem token
-export const api = createApi();

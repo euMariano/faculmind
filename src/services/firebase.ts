@@ -5,7 +5,7 @@
  */
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User, Auth } from 'firebase/auth'; // Importa Firebase Auth
+import { getAuth, Auth } from 'firebase/auth';
 import { 
   getFirestore, 
   collection, 
@@ -16,7 +16,7 @@ import {
   Firestore,
   serverTimestamp 
 } from 'firebase/firestore';
-import { api } from './api';
+import { ApiService } from './api';
 
 // Load Firebase configuration from Vite environment variables
 const firebaseConfig = {
@@ -28,7 +28,7 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || ""
 };
 
-export const isFirebaseConfigured = Boolean( // Verifica se a configuração básica existe e não é a de placeholder
+export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey && 
   firebaseConfig.projectId && 
   !firebaseConfig.apiKey.includes('sua_chave') &&
@@ -37,13 +37,13 @@ export const isFirebaseConfigured = Boolean( // Verifica se a configuração bá
 
 let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
-let authInstance: Auth | null = null; // Instância do Firebase Auth
+let authInstance: Auth | null = null;
 
 if (isFirebaseConfigured) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
     db = getFirestore(app);
-    authInstance = getAuth(app); // Inicializa o Auth
+    authInstance = getAuth(app);
     console.log('🔥 Firebase conectado com sucesso. Firestore e Auth disponíveis.');
   } catch (err) {
     console.warn('⚠️ Falha ao inicializar Firebase SDKs. Algumas funcionalidades podem não funcionar:', err);
@@ -52,16 +52,16 @@ if (isFirebaseConfigured) {
   console.info('ℹ️ Firebase não configurado no .env ou chave placeholder. Operando com API Express e funcionalidades limitadas.');
 }
 
-export { db, authInstance }; // Exporta o authInstance
+export { db, authInstance };
 
 // -------------------------------------------------------------
 // Real-time Coffee Table Chats Listener & Sender
 // -------------------------------------------------------------
 export function subscribeToCoffeeChats(
   tableId: string, 
-  onUpdate: (messages: Array<{ id?: string; user: string; text: string; time: string }>) => void
+  onUpdate: (messages: Array<{ id?: string; user: string; text: string; time: string }>) => void,
+  apiInstance?: ApiService
 ): () => void {
-  // 1. If Firebase Firestore is active
   if (db && isFirebaseConfigured) {
     try {
       const q = query(
@@ -89,11 +89,11 @@ export function subscribeToCoffeeChats(
     }
   }
 
-  // 2. Fallback: REST API polling & synchronization
   let isSubscribed = true;
   const fetchMessages = async () => {
+    if (!apiInstance) return;
     try {
-      const res = await api.getCoffeeChats(tableId);
+      const res = await apiInstance.getCoffeeChats(tableId);
       if (isSubscribed && Array.isArray(res)) {
         onUpdate(res);
       }
@@ -113,9 +113,9 @@ export function subscribeToCoffeeChats(
 
 export async function sendCoffeeChatMessage(
   tableId: string, 
-  message: { user: string; text: string; time?: string }
+  message: { user: string; text: string; time?: string },
+  apiInstance?: ApiService
 ) {
-  // If Firebase Firestore is available
   if (db && isFirebaseConfigured) {
     try {
       await addDoc(collection(db, 'coffeeChats', tableId, 'messages'), {
@@ -130,15 +130,17 @@ export async function sendCoffeeChatMessage(
     }
   }
 
-  // Fallback to Express backend API
-  return api.sendCoffeeMessage(tableId, message);
+  if (apiInstance) {
+    return apiInstance.sendCoffeeMessage(tableId, message);
+  }
 }
 
 // -------------------------------------------------------------
 // Real-time Post-Its Mural Listener & Sender
 // -------------------------------------------------------------
 export function subscribeToPostIts(
-  onUpdate: (postIts: any[]) => void
+  onUpdate: (postIts: any[]) => void,
+  apiInstance?: ApiService
 ): () => void {
   if (db && isFirebaseConfigured) {
     try {
@@ -160,11 +162,11 @@ export function subscribeToPostIts(
     }
   }
 
-  // Fallback to Express API polling
   let isSubscribed = true;
   const fetchPostIts = async () => {
+    if (!apiInstance) return;
     try {
-      const res = await api.getPostIts();
+      const res = await apiInstance.getPostIts();
       if (isSubscribed && Array.isArray(res)) {
         onUpdate(res);
       }
@@ -182,13 +184,16 @@ export function subscribeToPostIts(
   };
 }
 
-export async function createPostIt(postIt: {
-  author: string;
-  avatar?: string;
-  text: string;
-  tag?: string;
-  color?: string;
-}) {
+export async function createPostIt(
+  postIt: {
+    author: string;
+    avatar?: string;
+    text: string;
+    tag?: string;
+    color?: string;
+  },
+  apiInstance?: ApiService
+) {
   if (db && isFirebaseConfigured) {
     try {
       const docRef = await addDoc(collection(db, 'postIts'), {
@@ -202,9 +207,13 @@ export async function createPostIt(postIt: {
     }
   }
 
-  return api.addPostIt(postIt);
+  if (apiInstance) {
+    return apiInstance.addPostIt(postIt);
+  }
 }
 
-export async function likePostIt(id: string | number) {
-  return api.likePostIt(id);
+export async function likePostIt(id: string | number, apiInstance?: ApiService) {
+  if (apiInstance) {
+    return apiInstance.likePostIt(id);
+  }
 }
