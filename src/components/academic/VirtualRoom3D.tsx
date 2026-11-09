@@ -1,17 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Coffee, 
-  Users, 
-  MessageSquare, 
   Pin, 
-  Laptop, 
-  BookOpen, 
-  GraduationCap, 
-  Send,
-  Sparkles,
-  Heart,
-  Radio,
-  Flame
+  Send, 
+  Heart, 
+  Radio
 } from 'lucide-react';
 import { sound } from '../../services/sound';
 import { 
@@ -23,13 +15,19 @@ import {
   isFirebaseConfigured 
 } from '../../services/firebase';
 import { PostIt, CoffeeChatMessage } from '../../types';
+import { useApi } from '../../context/ApiContext';
 
-export const VirtualRoom3D: React.FC = () => {
+interface VirtualRoom3DProps {
+  currentUser?: any;
+}
+
+export const VirtualRoom3D: React.FC<VirtualRoom3DProps> = ({ currentUser }) => {
+  const api = useApi();
   const [selectedHotspot, setSelectedHotspot] = useState<'cafe' | 'sofa' | 'mural' | 'noturno'>('mural');
   const [activeCoffeeTable, setActiveCoffeeTable] = useState('ia');
   const [postIts, setPostIts] = useState<PostIt[]>([]);
   const [newPostItText, setNewPostItText] = useState('');
-  const [newPostItAuthor, setNewPostItAuthor] = useState('Estudante Conectado');
+  const [newPostItAuthor, setNewPostItAuthor] = useState(currentUser?.email ? currentUser.email.split('@')[0] : 'Estudante Conectado');
   const [coffeeChats, setCoffeeChats] = useState<Record<string, CoffeeChatMessage[]>>({
     ia: [],
     eventos: [],
@@ -42,11 +40,11 @@ export const VirtualRoom3D: React.FC = () => {
   useEffect(() => {
     const unsubscribe = subscribeToPostIts((updatedPostIts) => {
       setPostIts(updatedPostIts);
-    });
+    }, api);
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, []);
+  }, [api]);
 
   // Subscribe to real-time Coffee Chats for active table
   useEffect(() => {
@@ -55,11 +53,11 @@ export const VirtualRoom3D: React.FC = () => {
         ...prev,
         [activeCoffeeTable]: messages
       }));
-    });
+    }, api);
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
     };
-  }, [activeCoffeeTable]);
+  }, [activeCoffeeTable, api]);
 
   const handleSendChat = async (tableId: string) => {
     const text = (chatInputs[tableId] || '').trim();
@@ -71,10 +69,10 @@ export const VirtualRoom3D: React.FC = () => {
 
     try {
       await sendCoffeeChatMessage(tableId, {
-        user: 'Você (Discente UFPE)',
+        user: currentUser?.email ? currentUser.email.split('@')[0] : 'Você (Discente UFPE)',
         text,
         time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      });
+      }, api);
     } catch (err) {
       console.error('Erro ao enviar mensagem:', err);
     } finally {
@@ -97,7 +95,7 @@ export const VirtualRoom3D: React.FC = () => {
         text,
         tag: 'Comunidade UFPE',
         color: 'bg-sky-100 border-sky-300 text-sky-900'
-      });
+      }, api);
     } catch (err) {
       console.error('Erro ao colar bilhete:', err);
     }
@@ -106,7 +104,7 @@ export const VirtualRoom3D: React.FC = () => {
   const handleLike = async (postItId: string | number) => {
     sound.playPop();
     try {
-      await likePostIt(postItId);
+      await likePostIt(postItId, api);
       setPostIts(prev => prev.map(p => {
         if (String(p.id) === String(postItId)) {
           return { ...p, likes: (p.likes || 0) + 1 };

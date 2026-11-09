@@ -8,7 +8,9 @@ import {
   Building2, 
   Volume2, 
   VolumeX, 
-  MessageSquare
+  MessageSquare,
+  LogOut,
+  User
 } from 'lucide-react';
 import { ActiveTab } from '../../types';
 import { sound } from '../../services/sound';
@@ -17,9 +19,17 @@ interface NavbarProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   openChat: (agentId?: string) => void;
+  onLogout?: () => void;
+  currentUserEmail?: string;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, openChat }) => {
+export const Navbar: React.FC<NavbarProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  openChat,
+  onLogout,
+  currentUserEmail 
+}) => {
   const [soundOn, setSoundOn] = React.useState(sound.isEnabled());
 
   const toggleSound = () => {
@@ -83,7 +93,12 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, openCha
           <span>Ecossistema Facul Mind 2026 • Integração UFPE & Gestão Secretarial Multi-Agentes</span>
         </div>
         <div className="hidden sm:flex items-center gap-4 text-rose-100">
-          <span>Iniciativa Secretariado Executivo</span>
+          {currentUserEmail && (
+            <span className="flex items-center gap-1 text-[11px] font-semibold text-rose-200">
+              <User size={12} />
+              <span>{currentUserEmail}</span>
+            </span>
+          )}
           <span>•</span>
           <button 
             onClick={toggleSound} 
@@ -93,6 +108,19 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, openCha
             {soundOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
             <span>{soundOn ? 'Áudio Zen Ligado' : 'Áudio Mudo'}</span>
           </button>
+          {onLogout && (
+            <>
+              <span>•</span>
+              <button 
+                onClick={onLogout}
+                className="flex items-center gap-1 hover:text-white transition text-rose-200 hover:text-white font-bold"
+                title="Sair da Conta"
+              >
+                <LogOut size={13} />
+                <span>Sair</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 

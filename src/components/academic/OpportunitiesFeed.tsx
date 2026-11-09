@@ -1,24 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Search, 
-  Briefcase, 
-  Users, 
-  Calendar, 
   Coins, 
   MapPin, 
   Clock, 
   CheckCircle2, 
   Sparkles, 
   Send, 
-  X,
-  Filter
+  X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Opportunity } from '../../types';
-import { api } from '../../services/api';
 import { sound } from '../../services/sound';
+import { useApi } from '../../context/ApiContext';
 
 export const OpportunitiesFeed: React.FC = () => {
+  const api = useApi();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [category, setCategory] = useState<string>('Todos');
   const [search, setSearch] = useState<string>('');
@@ -46,7 +43,7 @@ export const OpportunitiesFeed: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [category]);
+  }, [category, api]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +79,7 @@ export const OpportunitiesFeed: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12 max-w-4xl mx-auto">
-      {/* Feed Header - Matches Gemini_Generated_Image_p3h7vop3h7vop3h7(1).jpg */}
+      {/* Feed Header */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

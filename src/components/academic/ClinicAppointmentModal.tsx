@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, Heart, ShieldCheck, CheckCircle2, UserCheck, Calendar } from 'lucide-react';
-import { api } from '../../services/api';
+import { X, Heart, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { sound } from '../../services/sound';
+import { useApi } from '../../context/ApiContext';
 
 interface ClinicModalProps {
   isOpen: boolean;
@@ -10,6 +10,7 @@ interface ClinicModalProps {
 }
 
 export const ClinicAppointmentModal: React.FC<ClinicModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const api = useApi();
   const [nickname, setNickname] = useState('Discente_' + Math.floor(100 + Math.random() * 900));
   const [course, setCourse] = useState('Secretariado Executivo');
   const [shift, setShift] = useState('Noite');
