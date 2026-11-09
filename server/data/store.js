@@ -372,13 +372,14 @@ const INITIAL_DATA = {
       { id: "msg-6", user: "Etyene (Secretariado)", text: "A Inova Consultoria abriu vaga de estágio presencial no Recife Antigo! R$ 1.200.", time: "14:20" },
       { id: "msg-7", user: "Thiago (ADM)", text: "Acabei de me candidatar pelo Radar da FaculMind!", time: "15:05" }
     ]
-  },
-  studentAcademicRecord: null
+  }
 };
 
 class DataStore {
   constructor() {
     this.data = this.loadData();
+    // Garante que studentAcademicRecords seja um objeto mesmo se o database.json estiver vazio ou legado
+    this.data.studentAcademicRecords = this.data.studentAcademicRecords || {}; 
   }
 
   loadData() {
@@ -386,19 +387,24 @@ class DataStore {
       if (fs.existsSync(DB_FILE)) {
         const content = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(content);
+        // Não migrar automaticamente o studentAcademicRecord global legado para um usuário
+        const { studentAcademicRecord, ...restParsed } = parsed; 
+
         return {
           ...INITIAL_DATA,
-          ...parsed,
+          ...restParsed, // Inclui todos os dados exceto o antigo studentAcademicRecord
           postIts: parsed.postIts || INITIAL_DATA.postIts,
           coffeeChats: parsed.coffeeChats || INITIAL_DATA.coffeeChats,
-          studentAcademicRecord: parsed.studentAcademicRecord || INITIAL_DATA.studentAcademicRecord
+          studentAcademicRecords: parsed.studentAcademicRecords || {} // Inicializa como objeto vazio se não existir
         };
       }
     } catch (e) {
       console.warn('Could not read existing database.json, initializing fresh store:', e.message);
     }
-    this.saveData(INITIAL_DATA);
-    return JSON.parse(JSON.stringify(INITIAL_DATA));
+    // Salva INITIAL_DATA sem o campo studentAcademicRecord global
+    const initialDataWithoutGlobalStudent = { ...INITIAL_DATA, studentAcademicRecords: {} }; 
+    this.saveData(initialDataWithoutGlobalStudent);
+    return JSON.parse(JSON.stringify(initialDataWithoutGlobalStudent));
   }
 
   saveData(dataToSave) {
@@ -616,15 +622,24 @@ class DataStore {
 
   // -------------------------------------------------------------
   // Real Student Academic Record (Passo 4 - SIGAA Integration)
+  // Agora armazenado por UID do usuário
   // -------------------------------------------------------------
-  getStudentAcademicRecord() {
-    return this.data.studentAcademicRecord || null;
+  getStudentAcademicRecord(uid) {
+    if (!uid) {
+      console.warn('Attempted to get student record without UID.');
+      return null;
+    }
+    return this.data.studentAcademicRecords[uid] || null;
   }
 
-  saveStudentAcademicRecord(record) {
-    this.data.studentAcademicRecord = record;
+  saveStudentAcademicRecord(uid, record) {
+    if (!uid) {
+      console.error('Attempted to save student record without UID.');
+      return null;
+    }
+    this.data.studentAcademicRecords[uid] = record;
     this.saveData();
-    return this.data.studentAcademicRecord;
+    return this.data.studentAcademicRecords[uid];
   }
 }
 
