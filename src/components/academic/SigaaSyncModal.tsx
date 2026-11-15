@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import { api } from "../../services/api";
+import { useApi } from "../../context/ApiContext";
 import { sound } from "../../services/sound";
 import type { StudentAcademicRecord } from "../../types";
 
@@ -28,6 +28,7 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 	onSyncComplete,
 	onOpenChatWithSubject,
 }) => {
+	const api = useApi();
 	const [activeMode, setActiveMode] = useState<"form" | "paste">("form");
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
@@ -60,7 +61,10 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 				setError(res.error);
 			}
 		} catch (err: any) {
-			setError(err.message || "Falha ao sincronizar com o SIGAA. Verifique suas credenciais.");
+			setError(
+				err.message ||
+					"Falha ao sincronizar com o SIGAA. Verifique suas credenciais.",
+			);
 		} finally {
 			setLoading(false);
 		}
@@ -156,12 +160,11 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 				{/* Modal Content */}
 				<div className="p-6 overflow-y-auto space-y-5">
 					<div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-start gap-3">
-						<AlertCircle
-							size={20}
-							className="text-amber-700 shrink-0 mt-0.5"
-						/>
+						<AlertCircle size={20} className="text-amber-700 shrink-0 mt-0.5" />
 						<div className="text-xs text-amber-900 leading-relaxed">
-							<strong>Privacidade e Segurança:</strong> O Facul Mind apenas lê os dados necessários do SIGAA para exibição no painel e contexto da assistente Agy. Suas credenciais não são armazenadas.
+							<strong>Privacidade e Segurança:</strong> O Facul Mind apenas lê
+							os dados necessários do SIGAA para exibição no painel e contexto
+							da assistente Agy. Suas credenciais não são armazenadas.
 						</div>
 					</div>
 
@@ -175,7 +178,8 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 											Login no SIGAA
 										</h5>
 										<p className="text-[11px] text-slate-500 mb-2">
-											Insira seu usuário e senha do SIGAA para consultar suas turmas do período.
+											Insira seu usuário e senha do SIGAA para consultar suas
+											turmas do período.
 										</p>
 
 										<div>
@@ -291,7 +295,9 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 										</h4>
 									</div>
 									<p className="text-xs text-slate-600 mt-0.5">
-										Matrícula: <strong>{syncedData.matricula || "Não extraída"}</strong> • Curso:{" "}
+										Matrícula:{" "}
+										<strong>{syncedData.matricula || "Não extraída"}</strong> •
+										Curso:{" "}
 										<strong>{syncedData.course || "Não extraído"}</strong>
 									</p>
 								</div>
@@ -299,10 +305,12 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 								<div className="flex items-center gap-3">
 									<div className="text-right">
 										<span className="text-[10px] uppercase font-bold text-slate-500 block">
-											CRA
+											CR
 										</span>
 										<span className="text-xs font-bold text-slate-600">
-											{syncedData.cra !== null && syncedData.cra !== undefined ? syncedData.cra : "Indisponível"}
+											{syncedData.cr !== null && syncedData.cr !== undefined
+												? syncedData.cr
+												: "Indisponível"}
 										</span>
 									</div>
 									<div className="text-right border-l border-emerald-200 pl-3">
@@ -321,8 +329,7 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 								<h5 className="text-xs font-bold text-slate-800 mb-2 flex items-center gap-1.5">
 									<BookOpen size={15} className="text-ufpe-burgundy" />
 									<span>
-										Disciplinas Matriculadas ({syncedData.turmas.length}{" "}
-										turmas)
+										Disciplinas Matriculadas ({syncedData.turmas.length} turmas)
 									</span>
 								</h5>
 
@@ -332,9 +339,9 @@ export const SigaaSyncModal: React.FC<SigaaSyncModalProps> = ({
 									</p>
 								) : (
 									<div className="border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100 text-xs">
-										{syncedData.turmas.map((t) => (
+										{syncedData.turmas.map((t, index) => (
 											<div
-												key={t.id}
+												key={index}
 												className="p-3 bg-white hover:bg-slate-50 transition flex flex-col sm:flex-row sm:items-center justify-between gap-2"
 											>
 												<div>

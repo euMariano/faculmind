@@ -1,238 +1,239 @@
-export type ActiveTab = 
-  | 'academic' 
-  | 'opportunities' 
-  | 'pausa-mind' 
-  | 'virtual-room' 
-  | 'coordinator' 
-  | 'enterprise';
+export type ActiveTab =
+	| "academic"
+	| "opportunities"
+	| "pausa-mind"
+	| "virtual-room"
+	| "coordinator"
+	| "enterprise";
 
 export interface StudentTurma {
-  id: string;
-  periodo?: string | null;
-  codigo?: string | null;
-  disciplina: string;
-  turma?: string | null;
-  cargaHoraria?: number | null;
-  docente?: string | null;
-  horario?: string | null;
-  local?: string | null;
-  faltas?: number | null;
-  maxFaltasPermitidas?: number | null;
-  totalAulas?: number | null;
-  presencaPercentual?: number | null;
-  notas?: {
-    unidade1?: number | null;
-    unidade2?: number | null;
-    unidade3?: number | null;
-    mediaParcial?: number | null;
-  } | null;
-  status?: string | null;
+	id: string;
+	periodo?: string | null;
+	codigo?: string | null;
+	disciplina: string;
+	turma?: string | null;
+	cargaHoraria?: number | null;
+	docente?: string | null;
+	horario?: string | null;
+	local?: string | null;
+	faltas?: number | null;
+	maxFaltasPermitidas?: number | null;
+	totalAulas?: number | null;
+	presencaPercentual?: number | null;
+	notas?: {
+		unidade1?: number | null;
+		unidade2?: number | null;
+		unidade3?: number | null;
+		mediaParcial?: number | null;
+	} | null;
+	status?: string | null;
 }
 
 export interface StudentAcademicRecord {
-  matricula: string | null;
-  name: string | null;
-  course: string | null;
-  center?: string | null;
-  institution: string;
-  currentSemester: string | null;
-  cra: number | null;
-  status: string | null;
-  turmas: StudentTurma[];
-  horasComplementares?: {
-    concluidas: number | null;
-    obrigatorias: number | null;
-    pendentes: number | null;
-  } | null;
-  alerts?: string[];
-  lastSyncAt: string;
-  source: string;
+	matricula: string | null;
+	name: string | null;
+	course: string | null;
+	center?: string | null;
+	institution: string;
+	currentSemester: string | null;
+	cr: string | null;
+	status: string | null;
+	turmas: StudentTurma[];
+	horasComplementares?: {
+		concluidas: number | null;
+		obrigatorias: number | null;
+		pendentes: number | null;
+	} | null;
+	alerts?: string[];
+	lastSyncAt: string;
+	source: string;
 }
 
 export interface UniversityNotice {
-  title: string;
-  url: string;
-  source: string;
+	title: string;
+	url: string;
+	source: string;
 }
 
 export interface PostIt {
-  id: string | number;
-  author: string;
-  avatar?: string;
-  text: string;
-  tag: string;
-  color: string;
-  likes: number;
-  createdAt?: string;
+	id: string | number;
+	authorUid?: string;
+	author: string;
+	avatar?: string;
+	text: string;
+	tag: string;
+	color: string;
+	likes: number;
+	createdAt?: string;
 }
 
 export interface CoffeeChatMessage {
-  id?: string;
-  user: string;
-  text: string;
-  time: string;
-  timestamp?: string;
+	id?: string;
+	user: string;
+	text: string;
+	time: string;
+	timestamp?: string;
 }
 
 // Extensão para adicionar o UID do Firebase Admin à interface Request do Express
 declare global {
-  namespace Express {
-    interface Request {
-      uid?: string;
-    }
-  }
+	namespace Express {
+		interface Request {
+			uid?: string;
+		}
+	}
 }
 
 export interface Opportunity {
-  id: string;
-  title: string;
-  company: string;
-  type: string;
-  category: 'Todos' | 'Estágios' | 'Grupos' | 'Eventos' | 'Bolsas';
-  location: string;
-  remuneration: string;
-  hours: string;
-  courseMatch: string[];
-  description: string;
-  requirements: string;
-  deadline: string;
-  urgent: boolean;
-  postedBy: string;
-  applicants: number;
+	id: string;
+	title: string;
+	company: string;
+	type: string;
+	category: "Todos" | "Estágios" | "Grupos" | "Eventos" | "Bolsas";
+	location: string;
+	remuneration: string;
+	hours: string;
+	courseMatch: string[];
+	description: string;
+	requirements: string;
+	deadline: string;
+	urgent: boolean;
+	postedBy: string;
+	applicants: number;
 }
 
 export interface Ticket {
-  id: string;
-  studentNickname: string;
-  course: string;
-  subject: string;
-  category: string;
-  description: string;
-  status: 'Pendente' | 'Em Andamento' | 'Resolvido';
-  priority: 'Baixa' | 'Média' | 'Alta';
-  createdAt: string;
-  updatedAt: string;
-  response: string;
-  department: string;
+	id: string;
+	studentNickname: string;
+	course: string;
+	subject: string;
+	category: string;
+	description: string;
+	status: "Pendente" | "Em Andamento" | "Resolvido";
+	priority: "Baixa" | "Média" | "Alta";
+	createdAt: string;
+	updatedAt: string;
+	response: string;
+	department: string;
 }
 
 export interface ClinicAppointment {
-  id: string;
-  studentNickname: string;
-  course: string;
-  shift: string;
-  urgency: string;
-  preferredDays: string;
-  reasonCategory: string;
-  status: 'Pendente' | 'Em Andamento' | 'Concluído';
-  supervisor: string;
-  traineeAssigned: string;
-  notes: string;
-  createdAt: string;
+	id: string;
+	studentNickname: string;
+	course: string;
+	shift: string;
+	urgency: string;
+	preferredDays: string;
+	reasonCategory: string;
+	status: "Pendente" | "Em Andamento" | "Concluído";
+	supervisor: string;
+	traineeAssigned: string;
+	notes: string;
+	createdAt: string;
 }
 
 export interface PermanenciaStats {
-  totalResponses: number;
-  retentionRate: number;
-  engagementScore: number;
-  moodStats: {
-    focado: number;
-    ansioso: number;
-    exausto: number;
-    disposto: number;
-  };
-  riskAlerts: Array<{
-    course: string;
-    riskLevel: 'Baixo' | 'Médio' | 'Alto';
-    mainCause: string;
-    affectedCount: number;
-  }>;
+	totalResponses: number;
+	retentionRate: number;
+	engagementScore: number;
+	moodStats: {
+		focado: number;
+		ansioso: number;
+		exausto: number;
+		disposto: number;
+	};
+	riskAlerts: Array<{
+		course: string;
+		riskLevel: "Baixo" | "Médio" | "Alto";
+		mainCause: string;
+		affectedCount: number;
+	}>;
 }
 
 export interface OrgNode {
-  id: string;
-  title: string;
-  name: string;
-  role: string;
-  department: string;
-  level: number;
-  reportsTo: string | null;
-  responsibilities: string[];
+	id: string;
+	title: string;
+	name: string;
+	role: string;
+	department: string;
+	level: number;
+	reportsTo: string | null;
+	responsibilities: string[];
 }
 
 export interface WorkflowStep {
-  order: number;
-  name: string;
-  actor: string;
-  action: string;
-  time: string;
+	order: number;
+	name: string;
+	actor: string;
+	action: string;
+	time: string;
 }
 
 export interface Workflow {
-  id: string;
-  name: string;
-  agent: string;
-  trigger: string;
-  steps: WorkflowStep[];
-  mermaid: string;
-  bottlenecks: string[];
+	id: string;
+	name: string;
+	agent: string;
+	trigger: string;
+	steps: WorkflowStep[];
+	mermaid: string;
+	bottlenecks: string[];
 }
 
 export interface ChecklistItem {
-  id: string;
-  text: string;
-  status: 'A Fazer' | 'Em Andamento' | 'Concluído';
-  assignedTo: string;
-  dueDate: string;
+	id: string;
+	text: string;
+	status: "A Fazer" | "Em Andamento" | "Concluído";
+	assignedTo: string;
+	dueDate: string;
 }
 
 export interface Plan5W2H {
-  what: string;
-  why: string;
-  where: string;
-  when: string;
-  who: string;
-  how: string;
-  howMuch: string;
+	what: string;
+	why: string;
+	where: string;
+	when: string;
+	who: string;
+	how: string;
+	howMuch: string;
 }
 
 export interface SwotData {
-  strengths: string[];
-  weaknesses: string[];
-  opportunities: string[];
-  threats: string[];
-  plan5W2H: Plan5W2H[];
+	strengths: string[];
+	weaknesses: string[];
+	opportunities: string[];
+	threats: string[];
+	plan5W2H: Plan5W2H[];
 }
 
 export interface EnterpriseDocument {
-  id: string;
-  title: string;
-  type: string;
-  agent: string;
-  createdAt: string;
-  content: string;
+	id: string;
+	title: string;
+	type: string;
+	agent: string;
+	createdAt: string;
+	content: string;
 }
 
 export interface EnterpriseState {
-  companyName: string;
-  organization: OrgNode[];
-  workflows: Workflow[];
-  checklists: ChecklistItem[];
-  swot: SwotData;
-  documents: EnterpriseDocument[];
+	companyName: string;
+	organization: OrgNode[];
+	workflows: Workflow[];
+	checklists: ChecklistItem[];
+	swot: SwotData;
+	documents: EnterpriseDocument[];
 }
 
 export interface ChatMessage {
-  id: string;
-  sender: 'user' | 'agent';
-  agentName?: string;
-  avatar?: string;
-  text: string;
-  timestamp: string;
-  suggestions?: string[];
-  quickAction?: {
-    type: string;
-    target: string;
-    label: string;
-  };
+	id: string;
+	sender: "user" | "agent";
+	agentName?: string;
+	avatar?: string;
+	text: string;
+	timestamp: string;
+	suggestions?: string[];
+	quickAction?: {
+		type: string;
+		target: string;
+		label: string;
+	};
 }

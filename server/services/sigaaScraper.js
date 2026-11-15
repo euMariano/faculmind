@@ -1,183 +1,155 @@
-/**
- * SIGAA UFPE Scraper & University Data Extraction Service
- * Extrai dados estritamente reais das páginas autenticadas do SIGAA UFPE usando Puppeteer.
- */
+import axios from "axios";
+import { wrapper } from "axios-cookiejar-support";
+import * as cheerio from "cheerio";
+import { CookieJar } from "tough-cookie";
 
-import puppeteer from 'puppeteer';
-import * as cheerio from 'cheerio';
-import { formatSigaaScrapedData } from './sigaaParser.js';
+import { formatSigaaScrapedData } from "./sigaaParser.js";
 
-const SIGAA_BASE = process.env.SIGAA_BASE_URL || 'https://sigaa.ufpe.br';
+const SIGAA_BASE_URL = "https://sigaa.ufpe.br";
 
-/**
- * Sincroniza dados acadêmicos do SIGAA UFPE efetuando o fluxo real de autenticação e navegação.
- * @param {string} username - Usuário/Matrícula do discente
- * @param {string} password - Senha do SIGAA
- */
+function createSigaaSession() {
+	const jar = new CookieJar();
+
+	const client = wrapper(
+		axios.create({
+			jar,
+			baseURL: SIGAA_BASE_URL,
+			maxRedirects: 5,
+			timeout: 30000,
+			headers: {
+				"User-Agent":
+					"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+				Accept:
+					"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+				"Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+			},
+		}),
+	);
+
+	return client;
+}
+
 export async function syncWithSigaa(username, password) {
-  if (!username || !password) {
-    throw new Error('Usuário e senha do SIGAA são obrigatórios.');
-  }
+	const session = createSigaaSession();
 
-  let browser = null;
-  try {
-    console.log(`[SIGAA Scraper] Iniciando autenticação para discente: ${username}...`);
-    
-    browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu'
-      ]
-    });
+	try {
+		console.log("[SIGAA HTTP Scraper] Iniciando autenticação...");
 
-    const page = await browser.newPage();
-    page.setDefaultNavigationTimeout(35000);
-    await page.setUserAgent(
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    );
+		// 1. Acessa a tela de login e obtém os campos necessários.
+		const loginPageResponse = await session.get("/sigaa/verTelaLogin.do");
 
-    // 1. Abrir a página de login
-    const loginUrl = `${SIGAA_BASE}/sigaa/verTelaLogin.do`;
-    console.log(`[SIGAA Scraper] Acessando URL de login: ${loginUrl}`);
-    await page.goto(loginUrl, { waitUntil: 'domcontentloaded' });
+		const $ = cheerio.load(loginPageResponse.data);
 
-    // 2. Aguardar o formulário de login e preencher credenciais
-    await page.waitForSelector('input[name="user.login"]', { timeout: 10000 });
+		const form = $('form[name="loginForm"]');
 
-    await page.type('input[name="user.login"]', username);
-    await page.type('input[name="user.senha"]', password);
+		if (!form.length) {
+			throw new Error("Formulário de login não encontrado.");
+		}
 
-    // 3. Submeter formulário de login
-    console.log('[SIGAA Scraper] Submetendo credenciais no formulário...');
-    const submitBtnSelector = 'input[type="submit"][value="Entrar"], button[type="submit"]';
+		const action = form.attr("action");
 
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {}),
-      page.click(submitBtnSelector)
-    ]);
+		if (!action) {
+			throw new Error("Endpoint de autenticação não encontrado.");
+		}
 
-    const currentUrl = page.url();
+		// Preserva os campos hidden fornecidos pelo SIGAA.
+		const payload = new URLSearchParams();
 
-    // 4. Validar se o login falhou ou não redirecionou para área logada
-    const loginError = await page.evaluate(() => {
-      const errorElem = document.querySelector('.erros, .error, .mensagemErro, #painel-erros, .info-erro');
-      return errorElem ? errorElem.textContent.trim() : null;
-    });
+		form.find('input[type="hidden"]').each((_, element) => {
+			const name = $(element).attr("name");
+			const value = $(element).attr("value") || "";
 
-    if (loginError || currentUrl.includes('verTelaLogin.do') || currentUrl.includes('logar.do')) {
-      const errorDetail = loginError || 'Usuário ou senha incorretos ou sessão inválida no SIGAA UFPE.';
-      console.warn(`[SIGAA Scraper] Falha na autenticação: ${errorDetail}`);
-      throw new Error(`Falha na autenticação do SIGAA: ${errorDetail}`);
-    }
+			if (name) {
+				payload.append(name, value);
+			}
+		});
 
-    // 5. Validar que a URL corrente realmente é do portal discente
-    if (!currentUrl.includes('/portais/discente/') && !currentUrl.includes('discente.jsf')) {
-      throw new Error(`Página inesperada após login (${currentUrl}). O Portal do Discente não foi alcançado.`);
-    }
+		payload.append("user.login", username);
+		payload.append("user.senha", password);
 
-    // 6. Extração do HTML da página inicial autenticada (discente.jsf)
-    console.log('[SIGAA Scraper] Autenticado com sucesso! Extraindo Portal do Discente...');
-    const portalHtml = await page.evaluate(() => document.body.innerHTML);
+		// Resolve corretamente actions relativas ou absolutas.
+		const loginUrl = new URL(action, SIGAA_BASE_URL).toString();
 
-    // Validar se o HTML do portal contém a tabela do Portal do Discente (cabeçalho Componente Curricular)
-    const $portal = cheerio.load(portalHtml);
-    const hasPortalTable = $portal('table').toArray().some(table => {
-      const text = $portal(table).text().toLowerCase();
-      return text.includes('componente curricular');
-    });
+		console.log("[SIGAA HTTP Scraper] Submetendo credenciais...");
 
-    if (!hasPortalTable) {
-      throw new Error('Sessão iniciada, mas o Portal do Discente não apresentou a tabela de componentes curriculares.');
-    }
+		const loginResponse = await session.post(loginUrl, payload.toString(), {
+			headers: {
+				"Content-Type": "application/x-www-form-urlencoded",
+				Referer: `${SIGAA_BASE_URL}/sigaa/verTelaLogin.do`,
+				Origin: SIGAA_BASE_URL,
+			},
+		});
 
-    // 7. Navegar para a página de Turmas Anteriores (turmas.jsf) para obter códigos/carga horária
-    let turmasHtml = '';
-    let isPartialSync = false;
-    let syncMessage = 'Sincronização com o SIGAA UFPE realizada com sucesso!';
+		// 2. Verifica se o SIGAA manteve o usuário na tela de login.
+		const $loginResult = cheerio.load(loginResponse.data);
 
-    try {
-      const turmasUrl = `${SIGAA_BASE}/sigaa/portais/discente/turmas.jsf`;
-      console.log(`[SIGAA Scraper] Acessando histórico de turmas: ${turmasUrl}`);
-      await page.goto(turmasUrl, { waitUntil: 'domcontentloaded' });
-      
-      const turmasPageUrl = page.url();
-      if (turmasPageUrl.includes('verTelaLogin.do') || turmasPageUrl.includes('logar.do')) {
-        throw new Error('Sessão expirou ao tentar acessar turmas.jsf.');
-      }
+		const responseUrl = loginResponse.request?.res?.responseUrl || "";
 
-      turmasHtml = await page.evaluate(() => document.body.innerHTML);
-    } catch (turmasErr) {
-      console.warn('[SIGAA Scraper] Aviso: Não foi possível carregar turmas.jsf:', turmasErr.message);
-      isPartialSync = true;
-      syncMessage = `Sincronização parcial: Dados do Portal do Discente obtidos, mas não foi possível consultar 'turmas.jsf' (${turmasErr.message}).`;
-    }
+		const loginFormStillVisible =
+			$loginResult('form[name="loginForm"]').length > 0;
 
-    // 8. Formatar dados extraídos estritamente
-    const studentData = formatSigaaScrapedData(portalHtml, turmasHtml, { matricula: username });
+		const redirectedToLogin = responseUrl.includes("verTelaLogin.do");
 
-    if (!studentData.turmas || studentData.turmas.length === 0) {
-      throw new Error('A autenticação foi realizada, mas nenhuma turma pôde ser identificada no Portal do Discente.');
-    }
+		if (loginFormStillVisible || redirectedToLogin) {
+			throw new Error("Credenciais inválidas ou sessão bloqueada pelo SIGAA.");
+		}
 
-    return {
-      success: true,
-      mode: isPartialSync ? 'live_sigaa_partial' : 'live_sigaa',
-      message: syncMessage,
-      student: studentData
-    };
+		console.log(
+			"[SIGAA HTTP Scraper] Autenticado. Acessando Portal do Discente...",
+		);
 
-  } catch (err) {
-    console.error('[SIGAA Scraper Error]:', err.message);
-    throw err;
-  } finally {
-    if (browser) {
-      console.log('[SIGAA Scraper] Encerrando instância do browser...');
-      await browser.close().catch(e => console.error('Erro ao fechar o browser:', e));
-    }
-  }
+		// 3. Obtém o Portal do Discente.
+		// Fonte de dados: CRA, curso, matrícula e locais das salas.
+		const portalResponse = await session.get(
+			"/sigaa/portais/discente/discente.jsf",
+		);
+
+		const htmlPortal = portalResponse.data;
+
+		console.log("[SIGAA HTTP Scraper] Acessando histórico de turmas...");
+
+		// 4. Obtém a página de turmas.
+		// Fonte de dados: códigos, turmas, carga horária e horários.
+		const turmasResponse = await session.get(
+			"/sigaa/portais/discente/turmas.jsf",
+		);
+
+		const htmlTurmas = turmasResponse.data;
+
+		console.log(
+			"[SIGAA HTTP Scraper] Extraindo e combinando dados acadêmicos...",
+		);
+
+		// 5. Combina os dados extraídos das duas páginas.
+		const parsedData = formatSigaaScrapedData({
+			htmlPortal,
+			htmlTurmas,
+			username,
+		});
+
+		console.log(
+			`[SIGAA HTTP Scraper] Extração concluída. Turmas encontradas: ${parsedData.turmas.length}`,
+		);
+
+		return {
+			success: true,
+			message: "Dados extraídos via HTTP.",
+			student: parsedData,
+		};
+	} catch (error) {
+		console.error("[SIGAA HTTP Scraper] Erro:", error.message);
+
+		throw new Error(error.message);
+	}
 }
 
 /**
- * Scrapes public university news / PROAES notices via fetch / Cheerio
+ * Avisos públicos da UFPE.
+ *
+ * Ainda não existe uma implementação de extração real nesta função.
+ * Retorna uma lista vazia para evitar apresentar avisos fictícios
+ * como se tivessem sido obtidos do portal oficial.
  */
 export async function scrapePublicUniversityNotices() {
-  try {
-    const res = await fetch('https://www.ufpe.br/proaes', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
-    const $ = cheerio.load(html);
-
-    const notices = [];
-    $('a').each((_, el) => {
-      const text = $(el).text().trim();
-      const href = $(el).attr('href') || '';
-      if (text.length > 20 && (
-        text.toLowerCase().includes('edital') || 
-        text.toLowerCase().includes('bolsa') || 
-        text.toLowerCase().includes('auxílio') ||
-        text.toLowerCase().includes('permanência') ||
-        text.toLowerCase().includes('ru') ||
-        text.toLowerCase().includes('estudant')
-      )) {
-        if (!notices.find(n => n.title === text)) {
-          notices.push({
-            title: text,
-            url: href.startsWith('http') ? href : `https://www.ufpe.br${href}`,
-            source: 'PROAES UFPE Oficial'
-          });
-        }
-      }
-    });
-
-    return notices.slice(0, 6);
-  } catch (err) {
-    console.warn('[PROAES Scraper Warning]:', err.message);
-    return [];
-  }
+	return [];
 }

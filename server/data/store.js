@@ -1,252 +1,343 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DB_FILE = path.join(__dirname, 'database.json');
+import { db } from "../config/firebaseAdmin.js";
 
 const INITIAL_DATA = {
-  opportunities: [
-    {
-      id: "vaga-1",
-      title: "Estágio em Administração e Suporte Secretarial",
-      company: "Inova Consultoria & Gestão",
-      type: "Estágio",
-      category: "Estágios",
-      location: "Presencial • Recife Antigo",
-      remuneration: "R$ 1.200,00 + VT",
-      hours: "6h diárias (13h às 19h)",
-      courseMatch: ["Secretariado Executivo", "Administração", "Gestão da Informação"],
-      description: "Apoio no mapeamento de processos administrativos, organização de reuniões executivas, elaboração de atas e contato com clientes.",
-      requirements: "Estar cursando a partir do 3º período. Conhecimento em pacote Office/Google Workspace. Proatividade e boa comunicação.",
-      deadline: "2026-11-20",
-      urgent: true,
-      postedBy: "Coordenação de Secretariado Executivo",
-      applicants: 12
-    },
-    {
-      id: "vaga-2",
-      title: "Revisão e Grupo de Estudos: Algoritmos & Tech",
-      company: "Comunidade Interdisciplinar UFPE (CIn + CAC)",
-      type: "Grupo de Estudo",
-      category: "Grupos",
-      location: "Biblioteca Central UFPE • Sala 4B",
-      remuneration: "Horas Complementares (20h)",
-      hours: "Hoje, 19:00 - 21:00",
-      courseMatch: ["Ciência da Computação", "Sistemas de Informação", "Secretariado Executivo"],
-      description: "Grupo interdisciplinar unindo alunos de tecnologia e secretariado/gestão para desmistificar programação e automação de planilhas. Ideal para quem trabalha o dia todo e precisa revisar para a prova.",
-      requirements: "Aberto a todos os semestres. Trazer notebook ou caderno.",
-      deadline: "Hoje",
-      urgent: true,
-      postedBy: "Prof. Marcos (Monitoria)",
-      applicants: 18
-    },
-    {
-      id: "vaga-3",
-      title: "Palestra: O Futuro do Trabalho, Secretariado e IA",
-      company: "Auditório Denis Bernardes (CCSA/UFPE)",
-      type: "Evento",
-      category: "Eventos",
-      location: "Auditório B • 12/Nov às 14:00",
-      remuneration: "Certificado 4h complementares",
-      hours: "14:00 às 17:30",
-      courseMatch: ["Secretariado Executivo", "Administração", "Ciência da Computação", "Psicologia"],
-      description: "Palestra Magna sobre o impacto de Agentes de Inteligência Artificial na rotina corporativa e secretarial. Demonstração de ferramentas de orquestração e fluxogramas inteligentes.",
-      requirements: "Inscrições gratuitas com emissão de certificado oficial.",
-      deadline: "2026-11-12",
-      urgent: false,
-      postedBy: "Parceria DACE / DTI UFPE",
-      applicants: 84
-    },
-    {
-      id: "vaga-4",
-      title: "Bolsa de Iniciação Científica (PIBIC): Retenção Estudantil e IA",
-      company: "Laboratório de Tecnologia e Bem-Estar Acadêmico",
-      type: "Bolsa",
-      category: "Bolsas",
-      location: "UFPE - Campus Recife",
-      remuneration: "R$ 700,00 / mês",
-      hours: "20h semanais",
-      courseMatch: ["Psicologia", "Ciência da Computação", "Secretariado Executivo", "Pedagogia"],
-      description: "Pesquisa aplicada sobre métodos preditivos anônimos para redução de evasão universitária, monitoramento de sentimentos e promoção de saúde mental em universidades públicas.",
-      requirements: "Disponibilidade de 20h, CRA superior a 6.5, não ter reprovação ativa em disciplinas obrigatórias.",
-      deadline: "2026-11-28",
-      urgent: false,
-      postedBy: "PROPESQ / Pró-Reitoria de Pesquisa",
-      applicants: 29
-    },
-    {
-      id: "vaga-5",
-      title: "Auxílio Permanência e Moradia 2026.1",
-      company: "PROAES - Pró-Reitoria de Assuntos Estudantis",
-      type: "Auxílio",
-      category: "Bolsas",
-      location: "UFPE - Reitoria",
-      remuneration: "R$ 550,00 / mês + RU gratuito",
-      hours: "Semestre 2026.1 e 2026.2",
-      courseMatch: ["Todos os Cursos de Graduação"],
-      description: "Programa de apoio socioeconômico prioritário para discentes com renda per capita familiar de até 1,5 salário mínimo. Inclui isenção total no Restaurante Universitário.",
-      requirements: "Comprovação de vulnerabilidade pelo Cadastro PROAES e estar devidamente matriculado.",
-      deadline: "2026-11-30",
-      urgent: true,
-      postedBy: "PROAES UFPE",
-      applicants: 156
-    }
-  ],
-  tickets: [
-    {
-      id: "FM-2026-UFPE-0492",
-      studentNickname: "EstudanteNoturno_CAC",
-      course: "Secretariado Executivo",
-      subject: "Acesso à Biblioteca Central após às 20h para quem trabalha",
-      category: "Infraestrutura & Horários",
-      description: "Muitos alunos que trabalham chegam na universidade às 18h40 e encontram a sala de estudos em grupo fechada a partir das 20h. Sugiro estender o horário até 21h45.",
-      status: "Em Andamento",
-      priority: "Média",
-      createdAt: "2026-11-04T10:15:00Z",
-      updatedAt: "2026-11-05T14:20:00Z",
-      response: "A solicitação foi acolhida pela Diretoria do SIB/UFPE. Uma portaria de extensão de horário para o bloco B da Biblioteca está em fase de deliberação para o turno da noite.",
-      department: "Diretoria do Sistema de Bibliotecas"
-    },
-    {
-      id: "FM-2026-UFPE-0477",
-      studentNickname: "CalouroAnonimo_2026",
-      course: "Ciência da Computação",
-      subject: "Conflito de horários entre disciplinas interdisciplinares",
-      category: "Matrícula e Grade",
-      description: "Gostaria de cursar Gestão de Processos em Secretariado como complementar, mas o SIGAA acusa sobreposição de 15 minutos de deslocamento entre o CIn e o CCSA.",
-      status: "Resolvido",
-      priority: "Baixa",
-      createdAt: "2026-11-01T08:30:00Z",
-      updatedAt: "2026-11-03T11:00:00Z",
-      response: "Ajuste manual concedido pela Coordenação Geral de Cursos conforme dispõe a Resolução de Mobilidade Interdepartamental. O estudante pode solicitar dispensa no DTI.",
-      department: "Coordenação de Ensino de Graduação"
-    }
-  ],
-  clinicAppointments: [
-    {
-      id: "CLI-901",
-      studentNickname: "Discente_CFCH",
-      course: "Psicologia",
-      shift: "Tarde",
-      urgency: "Média",
-      preferredDays: "Terças e Quintas",
-      reasonCategory: "Ansiedade com fim de semestre e TCC",
-      status: "Pendente",
-      supervisor: "Profa. Dra. Mariana Sampaio (CRP-02)",
-      traineeAssigned: "João Pedro (9º Período - Psicologia Clínica)",
-      notes: "Encaminhado para acolhimento inicial na Clínica-Escola de Psicologia da UFPE.",
-      createdAt: "2026-11-06T15:20:00Z"
-    },
-    {
-      id: "CLI-898",
-      studentNickname: "Estudante_CCSA",
-      course: "Secretariado Executivo",
-      shift: "Noite",
-      urgency: "Alta",
-      preferredDays: "Quartas",
-      reasonCategory: "Sobrecarga trabalho + universidade",
-      status: "Em Andamento",
-      supervisor: "Profa. Dra. Mariana Sampaio (CRP-02)",
-      traineeAssigned: "Marta Silva (10º Período - Psicologia Organizacional e Clínica)",
-      notes: "Primeira sessão de acolhimento realizada. Plano de regulação de estresse estabelecido.",
-      createdAt: "2026-11-03T17:45:00Z"
-    }
-  ],
-  permanenciaSurvey: {
-    totalResponses: 342,
-    retentionRate: 84.2,
-    engagementScore: 78,
-    moodStats: {
-      focado: 38,
-      ansioso: 27,
-      exausto: 23,
-      disposto: 12
-    },
-    riskAlerts: [
-      {
-        course: "Engenharias & Exatas",
-        riskLevel: "Alto",
-        mainCause: "Sobrecarga de cálculo e horários diurnos conflitantes com estágio",
-        affectedCount: 42
-      },
-      {
-        course: "Secretariado Executivo & Gestão",
-        riskLevel: "Baixo",
-        mainCause: "Alunos trabalhadores buscando flexibilidade em matérias noturnas",
-        affectedCount: 14
-      }
-    ]
-  },
-  enterprise: {
-    companyName: "Soluções Digitais & Consultoria Ltda",
-    organization: [
-      {
-        id: "org-1",
-        title: "Diretoria Geral",
-        name: "Carlos Eduardo Menezes",
-        role: "Diretor Executivo (CEO)",
-        department: "Diretoria",
-        level: 1,
-        reportsTo: null,
-        responsibilities: ["Estratégia corporativa", "Relações com investidores", "Aprovação orçamentária final"]
-      },
-      {
-        id: "org-2",
-        title: "Secretariado Executivo & Governança",
-        name: "Fernanda Albuquerque",
-        role: "Secretária Executiva Plena",
-        department: "Diretoria / Gestão",
-        level: 2,
-        reportsTo: "org-1",
-        responsibilities: ["Gestão da agenda da diretoria", "Redação de atas e deliberações", "Mapeamento de fluxos de atendimento", "Comunicação interdepartamental"]
-      },
-      {
-        id: "org-3",
-        title: "Gerência Administrativo-Financeira",
-        name: "Mariano Silva",
-        role: "Gerente Administrativo",
-        department: "Administrativo",
-        level: 2,
-        reportsTo: "org-1",
-        responsibilities: ["Fluxo de caixa e faturamento", "Gestão de suprimentos e compras", "Supervisão contábil e tributária (Simples Nacional)"]
-      },
-      {
-        id: "org-4",
-        title: "Gerência de Operações & Atendimento",
-        name: "Sthefanny Santos",
-        role: "Líder Operacional",
-        department: "Operações",
-        level: 2,
-        reportsTo: "org-1",
-        responsibilities: ["Triagem e atendimento de clientes", "Acompanhamento de prazos de entrega", "Controle de qualidade de serviços"]
-      },
-      {
-        id: "org-5",
-        title: "Analista de Suporte e Processos",
-        name: "Felipe Gonçalves",
-        role: "Analista Operacional",
-        department: "Operações",
-        level: 3,
-        reportsTo: "org-4",
-        responsibilities: ["Execução das ordens de serviço", "Elaboração de relatórios diários de atendimento", "Identificação de gargalos operacionais"]
-      }
-    ],
-    workflows: [
-      {
-        id: "wf-1",
-        name: "Atendimento ao Cliente e Triagem de Solicitações",
-        agent: "FACUL FLUXO",
-        trigger: "Recebimento de e-mail, WhatsApp institucional ou ligação de cliente",
-        steps: [
-          { order: 1, name: "Recebimento", actor: "Secretariado / Recepção", action: "Registrar dados do solicitante, natureza do pedido e canal de origem.", time: "10 min" },
-          { order: 2, name: "Triagem & Classificação", actor: "FACUL FLUXO / Secretário", action: "Classificar prioridade (Urgente, Normal, Baixa) e encaminhar ao departamento.", time: "15 min" },
-          { order: 3, name: "Execução & Tratativa", actor: "Operações ou Financeiro", action: "Desenvolvimento da solução, confecção de documentos ou resolução técnica.", time: "24h - 48h" },
-          { order: 4, name: "Revisão e Validação", actor: "Secretariado Executivo", action: "Revisar resposta contra o padrão de qualidade e compliance da empresa.", time: "30 min" },
-          { order: 5, name: "Finalização & Feedback", actor: "Atendimento", action: "Envio formal da resposta ao cliente e arquivamento do protocolo.", time: "10 min" }
-        ],
-        mermaid: `flowchart TD
+	opportunities: [
+		{
+			id: "vaga-1",
+			title: "Estágio em Administração e Suporte Secretarial",
+			company: "Inova Consultoria & Gestão",
+			type: "Estágio",
+			category: "Estágios",
+			location: "Presencial • Recife Antigo",
+			remuneration: "R$ 1.200,00 + VT",
+			hours: "6h diárias (13h às 19h)",
+			courseMatch: [
+				"Secretariado Executivo",
+				"Administração",
+				"Gestão da Informação",
+			],
+			description:
+				"Apoio no mapeamento de processos administrativos, organização de reuniões executivas, elaboração de atas e contato com clientes.",
+			requirements:
+				"Estar cursando a partir do 3º período. Conhecimento em pacote Office/Google Workspace. Proatividade e boa comunicação.",
+			deadline: "2026-11-20",
+			urgent: true,
+			postedBy: "Coordenação de Secretariado Executivo",
+			applicants: 12,
+		},
+		{
+			id: "vaga-2",
+			title: "Revisão e Grupo de Estudos: Algoritmos & Tech",
+			company: "Comunidade Interdisciplinar UFPE (CIn + CAC)",
+			type: "Grupo de Estudo",
+			category: "Grupos",
+			location: "Biblioteca Central UFPE • Sala 4B",
+			remuneration: "Horas Complementares (20h)",
+			hours: "Hoje, 19:00 - 21:00",
+			courseMatch: [
+				"Ciência da Computação",
+				"Sistemas de Informação",
+				"Secretariado Executivo",
+			],
+			description:
+				"Grupo interdisciplinar unindo alunos de tecnologia e secretariado/gestão para desmistificar programação e automação de planilhas. Ideal para quem trabalha o dia todo e precisa revisar para a prova.",
+			requirements: "Aberto a todos os semestres. Trazer notebook ou caderno.",
+			deadline: "Hoje",
+			urgent: true,
+			postedBy: "Prof. Marcos (Monitoria)",
+			applicants: 18,
+		},
+		{
+			id: "vaga-3",
+			title: "Palestra: O Futuro do Trabalho, Secretariado e IA",
+			company: "Auditório Denis Bernardes (CCSA/UFPE)",
+			type: "Evento",
+			category: "Eventos",
+			location: "Auditório B • 12/Nov às 14:00",
+			remuneration: "Certificado 4h complementares",
+			hours: "14:00 às 17:30",
+			courseMatch: [
+				"Secretariado Executivo",
+				"Administração",
+				"Ciência da Computação",
+				"Psicologia",
+			],
+			description:
+				"Palestra Magna sobre o impacto de Agentes de Inteligência Artificial na rotina corporativa e secretarial. Demonstração de ferramentas de orquestração e fluxogramas inteligentes.",
+			requirements: "Inscrições gratuitas com emissão de certificado oficial.",
+			deadline: "2026-11-12",
+			urgent: false,
+			postedBy: "Parceria DACE / DTI UFPE",
+			applicants: 84,
+		},
+		{
+			id: "vaga-4",
+			title: "Bolsa de Iniciação Científica (PIBIC): Retenção Estudantil e IA",
+			company: "Laboratório de Tecnologia e Bem-Estar Acadêmico",
+			type: "Bolsa",
+			category: "Bolsas",
+			location: "UFPE - Campus Recife",
+			remuneration: "R$ 700,00 / mês",
+			hours: "20h semanais",
+			courseMatch: [
+				"Psicologia",
+				"Ciência da Computação",
+				"Secretariado Executivo",
+				"Pedagogia",
+			],
+			description:
+				"Pesquisa aplicada sobre métodos preditivos anônimos para redução de evasão universitária, monitoramento de sentimentos e promoção de saúde mental em universidades públicas.",
+			requirements:
+				"Disponibilidade de 20h, CRA superior a 6.5, não ter reprovação ativa em disciplinas obrigatórias.",
+			deadline: "2026-11-28",
+			urgent: false,
+			postedBy: "PROPESQ / Pró-Reitoria de Pesquisa",
+			applicants: 29,
+		},
+		{
+			id: "vaga-5",
+			title: "Auxílio Permanência e Moradia 2026.1",
+			company: "PROAES - Pró-Reitoria de Assuntos Estudantis",
+			type: "Auxílio",
+			category: "Bolsas",
+			location: "UFPE - Reitoria",
+			remuneration: "R$ 550,00 / mês + RU gratuito",
+			hours: "Semestre 2026.1 e 2026.2",
+			courseMatch: ["Todos os Cursos de Graduação"],
+			description:
+				"Programa de apoio socioeconômico prioritário para discentes com renda per capita familiar de até 1,5 salário mínimo. Inclui isenção total no Restaurante Universitário.",
+			requirements:
+				"Comprovação de vulnerabilidade pelo Cadastro PROAES e estar devidamente matriculado.",
+			deadline: "2026-11-30",
+			urgent: true,
+			postedBy: "PROAES UFPE",
+			applicants: 156,
+		},
+	],
+
+	tickets: [
+		{
+			id: "FM-2026-UFPE-0492",
+			studentNickname: "EstudanteNoturno_CAC",
+			course: "Secretariado Executivo",
+			subject: "Acesso à Biblioteca Central após às 20h para quem trabalha",
+			category: "Infraestrutura & Horários",
+			description:
+				"Muitos alunos que trabalham chegam na universidade às 18h40 e encontram a sala de estudos em grupo fechada a partir das 20h. Sugiro estender o horário até 21h45.",
+			status: "Em Andamento",
+			priority: "Média",
+			createdAt: "2026-11-04T10:15:00Z",
+			updatedAt: "2026-11-05T14:20:00Z",
+			response:
+				"A solicitação foi acolhida pela Diretoria do SIB/UFPE. Uma portaria de extensão de horário para o bloco B da Biblioteca está em fase de deliberação para o turno da noite.",
+			department: "Diretoria do Sistema de Bibliotecas",
+		},
+		{
+			id: "FM-2026-UFPE-0477",
+			studentNickname: "CalouroAnonimo_2026",
+			course: "Ciência da Computação",
+			subject: "Conflito de horários entre disciplinas interdisciplinares",
+			category: "Matrícula e Grade",
+			description:
+				"Gostaria de cursar Gestão de Processos em Secretariado como complementar, mas o SIGAA acusa sobreposição de 15 minutos de deslocamento entre o CIn e o CCSA.",
+			status: "Resolvido",
+			priority: "Baixa",
+			createdAt: "2026-11-01T08:30:00Z",
+			updatedAt: "2026-11-03T11:00:00Z",
+			response:
+				"Ajuste manual concedido pela Coordenação Geral de Cursos conforme dispõe a Resolução de Mobilidade Interdepartamental. O estudante pode solicitar dispensa no DTI.",
+			department: "Coordenação de Ensino de Graduação",
+		},
+	],
+
+	clinicAppointments: [
+		{
+			id: "CLI-901",
+			studentNickname: "Discente_CFCH",
+			course: "Psicologia",
+			shift: "Tarde",
+			urgency: "Média",
+			preferredDays: "Terças e Quintas",
+			reasonCategory: "Ansiedade com fim de semestre e TCC",
+			status: "Pendente",
+			supervisor: "Profa. Dra. Mariana Sampaio (CRP-02)",
+			traineeAssigned: "João Pedro (9º Período - Psicologia Clínica)",
+			notes:
+				"Encaminhado para acolhimento inicial na Clínica-Escola de Psicologia da UFPE.",
+			createdAt: "2026-11-06T15:20:00Z",
+		},
+		{
+			id: "CLI-898",
+			studentNickname: "Estudante_CCSA",
+			course: "Secretariado Executivo",
+			shift: "Noite",
+			urgency: "Alta",
+			preferredDays: "Quartas",
+			reasonCategory: "Sobrecarga trabalho + universidade",
+			status: "Em Andamento",
+			supervisor: "Profa. Dra. Mariana Sampaio (CRP-02)",
+			traineeAssigned:
+				"Marta Silva (10º Período - Psicologia Organizacional e Clínica)",
+			notes:
+				"Primeira sessão de acolhimento realizada. Plano de regulação de estresse estabelecido.",
+			createdAt: "2026-11-03T17:45:00Z",
+		},
+	],
+
+	permanenciaSurvey: {
+		totalResponses: 342,
+		retentionRate: 84.2,
+		engagementScore: 78,
+		moodStats: {
+			focado: 38,
+			ansioso: 27,
+			exausto: 23,
+			disposto: 12,
+		},
+		riskAlerts: [
+			{
+				course: "Engenharias & Exatas",
+				riskLevel: "Alto",
+				mainCause:
+					"Sobrecarga de cálculo e horários diurnos conflitantes com estágio",
+				affectedCount: 42,
+			},
+			{
+				course: "Secretariado Executivo & Gestão",
+				riskLevel: "Baixo",
+				mainCause:
+					"Alunos trabalhadores buscando flexibilidade em matérias noturnas",
+				affectedCount: 14,
+			},
+		],
+	},
+
+	enterprise: {
+		companyName: "Soluções Digitais & Consultoria Ltda",
+		organization: [
+			{
+				id: "org-1",
+				title: "Diretoria Geral",
+				name: "Carlos Eduardo Menezes",
+				role: "Diretor Executivo (CEO)",
+				department: "Diretoria",
+				level: 1,
+				reportsTo: null,
+				responsibilities: [
+					"Estratégia corporativa",
+					"Relações com investidores",
+					"Aprovação orçamentária final",
+				],
+			},
+			{
+				id: "org-2",
+				title: "Secretariado Executivo & Governança",
+				name: "Fernanda Albuquerque",
+				role: "Secretária Executiva Plena",
+				department: "Diretoria / Gestão",
+				level: 2,
+				reportsTo: "org-1",
+				responsibilities: [
+					"Gestão da agenda da diretoria",
+					"Redação de atas e deliberações",
+					"Mapeamento de fluxos de atendimento",
+					"Comunicação interdepartamental",
+				],
+			},
+			{
+				id: "org-3",
+				title: "Gerência Administrativo-Financeira",
+				name: "Mariano Silva",
+				role: "Gerente Administrativo",
+				department: "Administrativo",
+				level: 2,
+				reportsTo: "org-1",
+				responsibilities: [
+					"Fluxo de caixa e faturamento",
+					"Gestão de suprimentos e compras",
+					"Supervisão contábil e tributária (Simples Nacional)",
+				],
+			},
+			{
+				id: "org-4",
+				title: "Gerência de Operações & Atendimento",
+				name: "Sthefanny Santos",
+				role: "Líder Operacional",
+				department: "Operações",
+				level: 2,
+				reportsTo: "org-1",
+				responsibilities: [
+					"Triagem e atendimento de clientes",
+					"Acompanhamento de prazos de entrega",
+					"Controle de qualidade de serviços",
+				],
+			},
+			{
+				id: "org-5",
+				title: "Analista de Suporte e Processos",
+				name: "Felipe Gonçalves",
+				role: "Analista Operacional",
+				department: "Operações",
+				level: 3,
+				reportsTo: "org-4",
+				responsibilities: [
+					"Execução das ordens de serviço",
+					"Elaboração de relatórios diários de atendimento",
+					"Identificação de gargalos operacionais",
+				],
+			},
+		],
+
+		workflows: [
+			{
+				id: "wf-1",
+				name: "Atendimento ao Cliente e Triagem de Solicitações",
+				agent: "FACUL FLUXO",
+				trigger:
+					"Recebimento de e-mail, WhatsApp institucional ou ligação de cliente",
+				steps: [
+					{
+						order: 1,
+						name: "Recebimento",
+						actor: "Secretariado / Recepção",
+						action:
+							"Registrar dados do solicitante, natureza do pedido e canal de origem.",
+						time: "10 min",
+					},
+					{
+						order: 2,
+						name: "Triagem & Classificação",
+						actor: "FACUL FLUXO / Secretário",
+						action:
+							"Classificar prioridade (Urgente, Normal, Baixa) e encaminhar ao departamento.",
+						time: "15 min",
+					},
+					{
+						order: 3,
+						name: "Execução & Tratativa",
+						actor: "Operações ou Financeiro",
+						action:
+							"Desenvolvimento da solução, confecção de documentos ou resolução técnica.",
+						time: "24h - 48h",
+					},
+					{
+						order: 4,
+						name: "Revisão e Validação",
+						actor: "Secretariado Executivo",
+						action:
+							"Revisar resposta contra o padrão de qualidade e compliance da empresa.",
+						time: "30 min",
+					},
+					{
+						order: 5,
+						name: "Finalização & Feedback",
+						actor: "Atendimento",
+						action:
+							"Envio formal da resposta ao cliente e arquivamento do protocolo.",
+						time: "10 min",
+					},
+				],
+				mermaid: `flowchart TD
   A[Recebimento do Pedido] --> B{Triagem & Classificação}
   B -->|Financeiro| C[Tratativa Contábil/Financeira]
   B -->|Operacional| D[Execução de Serviço]
@@ -255,60 +346,93 @@ const INITIAL_DATA = {
   D --> F
   E --> F
   F --> G[Finalização & Envio ao Cliente]`,
-        bottlenecks: [
-          "Falta de padronização nas informações coletadas no primeiro contato",
-          "Tempo excessivo de espera na triagem quando múltiplos canais não são centralizados"
-        ]
-      }
-    ],
-    checklists: [
-      { id: "chk-1", text: "Rever organograma institucional e sobreposição de cargos", status: "Em Andamento", assignedTo: "Secretariado Executivo", dueDate: "2026-11-10" },
-      { id: "chk-2", text: "Padronizar roteiro de atendimento a novos clientes (SOP)", status: "A Fazer", assignedTo: "Líder de Operações", dueDate: "2026-11-14" },
-      { id: "chk-3", text: "Definir responsabilidades e matriz RACI por colaborador", status: "Concluído", assignedTo: "Diretoria & Secretariado", dueDate: "2026-11-02" },
-      { id: "chk-4", text: "Mapear rotinas diárias e gargalos de comunicação interna", status: "A Fazer", assignedTo: "Fernanda Costa", dueDate: "2026-11-18" },
-      { id: "chk-5", text: "Organizar pasta de atas de reunião e deliberações em nuvem", status: "Concluído", assignedTo: "Secretariado Executivo", dueDate: "2026-11-05" }
-    ],
-    swot: {
-      strengths: [
-        "Equipe fundadora qualificada em Secretariado Executivo e Gestão",
-        "Alta capacidade de personalização de fluxos para pequenas e médias empresas",
-        "Integração nativa de Inteligência Artificial especializada (Multi-Agentes)"
-      ],
-      weaknesses: [
-        "Orçamento inicial enxuto (Bootstrapping de R$ 5.000,00)",
-        "Dependência de poucos canais de tração comercial na largada",
-        "Necessidade de conscientizar PMEs sobre o valor da organização documental"
-      ],
-      opportunities: [
-        "Mercado crescente de EdTechs e consultorias digitais no Nordeste e Brasil",
-        "Alta dor de desorganização administrativa e retrabalho em PMEs",
-        "Possibilidade de fornecer para Instituições de Ensino Superior públicas e privadas"
-      ],
-      threats: [
-        "Sistemas ERPs tradicionais consolidados (embora caros e rígidos)",
-        "Resistência de equipes conservadoras à adoção de IA na rotina diária",
-        "Oscilações no ambiente macroeconômico das pequenas empresas"
-      ],
-      plan5W2H: [
-        {
-          what: "Implementar piloto de consultoria secretarial com IA (FACUL FLUXO)",
-          why: "Validar economia de tempo na geração de SOPs e organogramas",
-          where: "Ambiente digital / 3 PMEs parceiras",
-          when: "Até Dezembro de 2026",
-          who: "Mariano Ferreira e Equipe Facul Mind",
-          how: "Apresentação de PoC com diagnósticos ao vivo e entrega de manuais",
-          howMuch: "R$ 450,00 (custos de infraestrutura e materiais)"
-        }
-      ]
-    },
-    documents: [
-      {
-        id: "doc-1",
-        title: "Ata de Reunião Ordinária - Alinhamento Operacional 2026.2",
-        type: "Ata de Reunião",
-        agent: "FACUL DOCS",
-        createdAt: "2026-11-05",
-        content: `**ATA DA REUNIÃO ORDINÁRIA DA DIRETORIA E SECRETARIADO**
+				bottlenecks: [
+					"Falta de padronização nas informações coletadas no primeiro contato",
+					"Tempo excessivo de espera na triagem quando múltiplos canais não são centralizados",
+				],
+			},
+		],
+
+		checklists: [
+			{
+				id: "chk-1",
+				text: "Rever organograma institucional e sobreposição de cargos",
+				status: "Em Andamento",
+				assignedTo: "Secretariado Executivo",
+				dueDate: "2026-11-10",
+			},
+			{
+				id: "chk-2",
+				text: "Padronizar roteiro de atendimento a novos clientes (SOP)",
+				status: "A Fazer",
+				assignedTo: "Líder de Operações",
+				dueDate: "2026-11-14",
+			},
+			{
+				id: "chk-3",
+				text: "Definir responsabilidades e matriz RACI por colaborador",
+				status: "Concluído",
+				assignedTo: "Diretoria & Secretariado",
+				dueDate: "2026-11-02",
+			},
+			{
+				id: "chk-4",
+				text: "Mapear rotinas diárias e gargalos de comunicação interna",
+				status: "A Fazer",
+				assignedTo: "Fernanda Costa",
+				dueDate: "2026-11-18",
+			},
+			{
+				id: "chk-5",
+				text: "Organizar pasta de atas de reunião e deliberações em nuvem",
+				status: "Concluído",
+				assignedTo: "Secretariado Executivo",
+				dueDate: "2026-11-05",
+			},
+		],
+
+		swot: {
+			strengths: [
+				"Equipe fundadora qualificada em Secretariado Executivo e Gestão",
+				"Alta capacidade de personalização de fluxos para pequenas e médias empresas",
+				"Integração nativa de Inteligência Artificial especializada (Multi-Agentes)",
+			],
+			weaknesses: [
+				"Orçamento inicial enxuto (Bootstrapping de R$ 5.000,00)",
+				"Dependência de poucos canais de tração comercial na largada",
+				"Necessidade de conscientizar PMEs sobre o valor da organização documental",
+			],
+			opportunities: [
+				"Mercado crescente de EdTechs e consultorias digitais no Nordeste e Brasil",
+				"Alta dor de desorganização administrativa e retrabalho em PMEs",
+				"Possibilidade de fornecer para Instituições de Ensino Superior públicas e privadas",
+			],
+			threats: [
+				"Sistemas ERPs tradicionais consolidados (embora caros e rígidos)",
+				"Resistência de equipes conservadoras à adoção de IA na rotina diária",
+				"Oscilações no ambiente macroeconômico das pequenas empresas",
+			],
+			plan5W2H: [
+				{
+					what: "Implementar piloto de consultoria secretarial com IA (FACUL FLUXO)",
+					why: "Validar economia de tempo na geração de SOPs e organogramas",
+					where: "Ambiente digital / 3 PMEs parceiras",
+					when: "Até Dezembro de 2026",
+					who: "Mariano Ferreira e Equipe Facul Mind",
+					how: "Apresentação de PoC com diagnósticos ao vivo e entrega de manuais",
+					howMuch: "R$ 450,00 (custos de infraestrutura e materiais)",
+				},
+			],
+		},
+
+		documents: [
+			{
+				id: "doc-1",
+				title: "Ata de Reunião Ordinária - Alinhamento Operacional 2026.2",
+				type: "Ata de Reunião",
+				agent: "FACUL DOCS",
+				createdAt: "2026-11-05",
+				content: `**ATA DA REUNIÃO ORDINÁRIA DA DIRETORIA E SECRETARIADO**
 
 **Data:** 05 de novembro de 2026 | **Horário:** 10:00 às 11:30
 **Presentes:** Carlos Menezes (Diretor), Fernanda Albuquerque (Secretária Executiva), Mariano Silva (Gerente Adm), Sthefanny Santos (Operações).
@@ -325,322 +449,389 @@ const INITIAL_DATA = {
 
 **Encaminhamentos:**
 - Fernanda Albuquerque: consolidar relatório de fluxos até sexta-feira.
-- Mariano Silva: validar custos de hospedagem e ferramentas em nuvem.`
-      }
-    ]
-  },
-  postIts: [
-    {
-      id: "post-1",
-      author: "Lucas (Computação - 5º per)",
-      avatar: "💻",
-      text: "Procuro colega de Secretariado Executivo ou ADM para organizar fluxo de caixa e pitch da nossa startup no Cin!",
-      tag: "Parceria TCC/Startup",
-      color: "bg-amber-100 border-amber-300 text-amber-900",
-      likes: 6
-    },
-    {
-      id: "post-2",
-      author: "Beatriz (Secretariado - 4º per)",
-      avatar: "📊",
-      text: "Posso ajudar a estruturar atas, cronogramas 5W2H e organogramas para projetos de extensão do CAC.",
-      tag: "Gestão & Processos",
-      color: "bg-rose-100 border-rose-300 text-rose-900",
-      likes: 9
-    },
-    {
-      id: "post-3",
-      author: "Gabriel (Psicologia - 8º per)",
-      avatar: "🧠",
-      text: "Compartilhei resumo sobre técnicas de regulação de estresse para a semana de provas na pasta pública.",
-      tag: "Bem-Estar & Resumos",
-      color: "bg-emerald-100 border-emerald-300 text-emerald-900",
-      likes: 14
-    }
-  ],
-  coffeeChats: {
-    ia: [
-      { id: "msg-1", user: "Mariano (Secretariado)", text: "Como vocês estão aplicando os agentes de IA na automação de relatórios?", time: "18:42" },
-      { id: "msg-2", user: "Clara (Computação)", text: "Estamos usando o Grok e LangChain para ler PDFs de regimento!", time: "18:45" },
-      { id: "msg-3", user: "Prof. Marcos", text: "Excelente conexão entre Secretariado e Tech. O mercado exige exatamente isso!", time: "18:50" }
-    ],
-    eventos: [
-      { id: "msg-4", user: "Fernanda (Secretariado)", text: "Estamos planejando o Simpósio Acadêmico 2026. Alguém do DTI para cuidar do credenciamento digital?", time: "17:15" },
-      { id: "msg-5", user: "Arthur (Engenharia)", text: "Posso ajudar a configurar os leitores de QR code!", time: "17:30" }
-    ],
-    estagios: [
-      { id: "msg-6", user: "Etyene (Secretariado)", text: "A Inova Consultoria abriu vaga de estágio presencial no Recife Antigo! R$ 1.200.", time: "14:20" },
-      { id: "msg-7", user: "Thiago (ADM)", text: "Acabei de me candidatar pelo Radar da FaculMind!", time: "15:05" }
-    ]
-  }
+- Mariano Silva: validar custos de hospedagem e ferramentas em nuvem.`,
+			},
+		],
+	},
+
+	// Post-Its agora são persistidos exclusivamente no Firestore.
+	postIts: [],
+
+	coffeeChats: {
+		ia: [
+			{
+				id: "msg-1",
+				user: "Mariano (Secretariado)",
+				text: "Como vocês estão aplicando os agentes de IA na automação de relatórios?",
+				time: "18:42",
+			},
+			{
+				id: "msg-2",
+				user: "Clara (Computação)",
+				text: "Estamos usando o Grok e LangChain para ler PDFs de regimento!",
+				time: "18:45",
+			},
+			{
+				id: "msg-3",
+				user: "Prof. Marcos",
+				text: "Excelente conexão entre Secretariado e Tech. O mercado exige exatamente isso!",
+				time: "18:50",
+			},
+		],
+		eventos: [
+			{
+				id: "msg-4",
+				user: "Fernanda (Secretariado)",
+				text: "Estamos planejando o Simpósio Acadêmico 2026. Alguém do DTI para cuidar do credenciamento digital?",
+				time: "17:15",
+			},
+			{
+				id: "msg-5",
+				user: "Arthur (Engenharia)",
+				text: "Posso ajudar a configurar os leitores de QR code!",
+				time: "17:30",
+			},
+		],
+		estagios: [
+			{
+				id: "msg-6",
+				user: "Etyene (Secretariado)",
+				text: "A Inova Consultoria abriu vaga de estágio presencial no Recife Antigo! R$ 1.200.",
+				time: "14:20",
+			},
+			{
+				id: "msg-7",
+				user: "Thiago (ADM)",
+				text: "Acabei de me candidatar pelo Radar da FaculMind!",
+				time: "15:05",
+			},
+		],
+	},
 };
 
+// Converte o Timestamp do Firestore para ISO string.
+// Também aceita strings, para manter compatibilidade com registros existentes.
+function serializePostIt(doc) {
+	const data = doc.data();
+	const createdAt = data.createdAt?.toDate
+		? data.createdAt.toDate().toISOString()
+		: (data.createdAt ?? null);
+
+	return {
+		...data,
+		id: doc.id,
+		createdAt,
+	};
+}
+
 class DataStore {
-  constructor() {
-    this.data = this.loadData();
-    // Garante que studentAcademicRecords seja um objeto mesmo se o database.json estiver vazio ou legado
-    this.data.studentAcademicRecords = this.data.studentAcademicRecords || {}; 
-  }
+	constructor() {
+		// Os dados de demonstração dos outros módulos permanecem em memória.
+		this.data = JSON.parse(JSON.stringify(INITIAL_DATA));
+	}
 
-  loadData() {
-    try {
-      if (fs.existsSync(DB_FILE)) {
-        const content = fs.readFileSync(DB_FILE, 'utf-8');
-        const parsed = JSON.parse(content);
-        // Não migrar automaticamente o studentAcademicRecord global legado para um usuário
-        const { studentAcademicRecord, ...restParsed } = parsed; 
+	// --- MÉTODOS DE DEMONSTRAÇÃO (MEMÓRIA RAM) ---
 
-        return {
-          ...INITIAL_DATA,
-          ...restParsed, // Inclui todos os dados exceto o antigo studentAcademicRecord
-          postIts: parsed.postIts || INITIAL_DATA.postIts,
-          coffeeChats: parsed.coffeeChats || INITIAL_DATA.coffeeChats,
-          studentAcademicRecords: parsed.studentAcademicRecords || {} // Inicializa como objeto vazio se não existir
-        };
-      }
-    } catch (e) {
-      console.warn('Could not read existing database.json, initializing fresh store:', e.message);
-    }
-    // Salva INITIAL_DATA sem o campo studentAcademicRecord global
-    const initialDataWithoutGlobalStudent = { ...INITIAL_DATA, studentAcademicRecords: {} }; 
-    this.saveData(initialDataWithoutGlobalStudent);
-    return JSON.parse(JSON.stringify(initialDataWithoutGlobalStudent));
-  }
+	getOpportunities() {
+		return this.data.opportunities;
+	}
 
-  saveData(dataToSave) {
-    try {
-      const dir = path.dirname(DB_FILE);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(DB_FILE, JSON.stringify(dataToSave || this.data, null, 2), 'utf-8');
-    } catch (e) {
-      console.error('Error saving database.json:', e);
-    }
-  }
+	applyOpportunity(id, studentInfo) {
+		const opp = this.data.opportunities.find((o) => o.id === id);
 
-  getOpportunities() {
-    return this.data.opportunities;
-  }
+		if (opp) {
+			opp.applicants = (opp.applicants || 0) + 1;
+			return opp;
+		}
 
-  applyOpportunity(id, studentInfo) {
-    const opp = this.data.opportunities.find(o => o.id === id);
-    if (opp) {
-      opp.applicants = (opp.applicants || 0) + 1;
-      this.saveData();
-      return opp;
-    }
-    return null;
-  }
+		return null;
+	}
 
-  getTickets() {
-    return this.data.tickets;
-  }
+	getTickets() {
+		return this.data.tickets;
+	}
 
-  createTicket(ticket) {
-    const newId = `FM-2026-UFPE-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newTicket = {
-      id: newId,
-      studentNickname: ticket.studentNickname || 'Estudante_Anonimo',
-      course: ticket.course || 'Graduação Geral',
-      subject: ticket.subject || 'Manifestação sem título',
-      category: ticket.category || 'Geral',
-      description: ticket.description,
-      status: 'Em Andamento',
-      priority: ticket.priority || 'Normal',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      response: 'Sua solicitação foi protocolada no sistema integrado Facul Mind e direcionada para a Secretaria e Coordenação competente para análise.',
-      department: ticket.department || 'Ouvidoria / Secretaria Acadêmica'
-    };
-    this.data.tickets.unshift(newTicket);
-    this.saveData();
-    return newTicket;
-  }
+	createTicket(ticket) {
+		const newId = `FM-2026-UFPE-${Math.floor(1000 + Math.random() * 9000)}`;
 
-  getClinicAppointments() {
-    return this.data.clinicAppointments;
-  }
+		const newTicket = {
+			id: newId,
+			studentNickname: ticket.studentNickname || "Estudante_Anonimo",
+			course: ticket.course || "Graduação Geral",
+			subject: ticket.subject || "Manifestação sem título",
+			category: ticket.category || "Geral",
+			description: ticket.description,
+			status: "Em Andamento",
+			priority: ticket.priority || "Normal",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+			response:
+				"Sua solicitação foi protocolada no sistema integrado Facul Mind e direcionada para a Secretaria e Coordenação competente para análise.",
+			department: ticket.department || "Ouvidoria / Secretaria Acadêmica",
+		};
 
-  createClinicAppointment(appt) {
-    const newId = `CLI-${Math.floor(100 + Math.random() * 900)}`;
-    const newAppt = {
-      id: newId,
-      studentNickname: appt.studentNickname || 'Estudante_Acolhido',
-      course: appt.course || 'Não informado',
-      shift: appt.shift || 'Tarde',
-      urgency: appt.urgency || 'Normal',
-      preferredDays: appt.preferredDays || 'A combinar',
-      reasonCategory: appt.reasonCategory || 'Acolhimento geral e regulação emocional',
-      status: 'Pendente',
-      supervisor: 'Corpo Docente de Estágio Supervisionado (CRP-02/UFPE)',
-      traineeAssigned: 'Aguardando alocação de estagiário do 9º/10º período',
-      notes: appt.notes || 'Solicitação registrada através da aba Acolhimento Psicológico do Facul Mind.',
-      createdAt: new Date().toISOString()
-    };
-    this.data.clinicAppointments.unshift(newAppt);
-    this.saveData();
-    return newAppt;
-  }
+		this.data.tickets.unshift(newTicket);
+		return newTicket;
+	}
 
-  getPermanenciaStats() {
-    return this.data.permanenciaSurvey;
-  }
+	getClinicAppointments() {
+		return this.data.clinicAppointments;
+	}
 
-  submitPermanenciaSurvey(answers) {
-    this.data.permanenciaSurvey.totalResponses += 1;
-    if (answers.mood && this.data.permanenciaSurvey.moodStats[answers.mood] !== undefined) {
-      this.data.permanenciaSurvey.moodStats[answers.mood] += 1;
-    }
-    this.saveData();
-    return this.data.permanenciaSurvey;
-  }
+	createClinicAppointment(appt) {
+		const newId = `CLI-${Math.floor(100 + Math.random() * 900)}`;
 
-  getEnterpriseData() {
-    return this.data.enterprise;
-  }
+		const newAppt = {
+			id: newId,
+			studentNickname: appt.studentNickname || "Estudante_Acolhido",
+			course: appt.course || "Não informado",
+			shift: appt.shift || "Tarde",
+			urgency: appt.urgency || "Normal",
+			preferredDays: appt.preferredDays || "A combinar",
+			reasonCategory:
+				appt.reasonCategory || "Acolhimento geral e regulação emocional",
+			status: "Pendente",
+			supervisor: "Corpo Docente de Estágio Supervisionado (CRP-02/UFPE)",
+			traineeAssigned: "Aguardando alocação de estagiário do 9º/10º período",
+			notes:
+				appt.notes ||
+				"Solicitação registrada através da aba Acolhimento Psicológico do Facul Mind.",
+			createdAt: new Date().toISOString(),
+		};
 
-  updateOrgChart(newOrg) {
-    this.data.enterprise.organization = newOrg;
-    this.saveData();
-    return this.data.enterprise.organization;
-  }
+		this.data.clinicAppointments.unshift(newAppt);
+		return newAppt;
+	}
 
-  addWorkflow(wf) {
-    const newWf = {
-      id: `wf-${Date.now()}`,
-      ...wf
-    };
-    this.data.enterprise.workflows.push(newWf);
-    this.saveData();
-    return newWf;
-  }
+	getPermanenciaStats() {
+		return this.data.permanenciaSurvey;
+	}
 
-  toggleChecklist(id) {
-    const item = this.data.enterprise.checklists.find(c => c.id === id);
-    if (item) {
-      if (item.status === 'Concluído') item.status = 'A Fazer';
-      else if (item.status === 'A Fazer') item.status = 'Em Andamento';
-      else item.status = 'Concluído';
-      this.saveData();
-      return item;
-    }
-    return null;
-  }
+	submitPermanenciaSurvey(answers) {
+		this.data.permanenciaSurvey.totalResponses += 1;
 
-  addChecklist(item) {
-    const newItem = {
-      id: `chk-${Date.now()}`,
-      text: item.text,
-      status: item.status || 'A Fazer',
-      assignedTo: item.assignedTo || 'Secretariado Executivo',
-      dueDate: item.dueDate || '2026-11-20'
-    };
-    this.data.enterprise.checklists.push(newItem);
-    this.saveData();
-    return newItem;
-  }
+		if (
+			answers.mood &&
+			this.data.permanenciaSurvey.moodStats[answers.mood] !== undefined
+		) {
+			this.data.permanenciaSurvey.moodStats[answers.mood] += 1;
+		}
 
-  updateSwot(swotData) {
-    this.data.enterprise.swot = {
-      ...this.data.enterprise.swot,
-      ...swotData
-    };
-    this.saveData();
-    return this.data.enterprise.swot;
-  }
+		return this.data.permanenciaSurvey;
+	}
 
-  addDocument(doc) {
-    const newDoc = {
-      id: `doc-${Date.now()}`,
-      title: doc.title,
-      type: doc.type || 'Documento Administrativo',
-      agent: doc.agent || 'FACUL DOCS',
-      createdAt: new Date().toISOString().split('T')[0],
-      content: doc.content
-    };
-    this.data.enterprise.documents.unshift(newDoc);
-    this.saveData();
-    return newDoc;
-  }
+	getEnterpriseData() {
+		return this.data.enterprise;
+	}
 
-  // -------------------------------------------------------------
-  // Real-time Virtual Room & Networking (Passo 2)
-  // -------------------------------------------------------------
-  getPostIts() {
-    return this.data.postIts || [];
-  }
+	updateOrgChart(newOrg) {
+		this.data.enterprise.organization = newOrg;
+		return this.data.enterprise.organization;
+	}
 
-  addPostIt(postIt) {
-    if (!this.data.postIts) this.data.postIts = [];
-    const newPostIt = {
-      id: `post-${Date.now()}`,
-      author: postIt.author || 'Estudante Conectado',
-      avatar: postIt.avatar || '🎓',
-      text: postIt.text,
-      tag: postIt.tag || 'Comunidade UFPE',
-      color: postIt.color || 'bg-sky-100 border-sky-300 text-sky-900',
-      likes: postIt.likes || 1,
-      createdAt: new Date().toISOString()
-    };
-    this.data.postIts.unshift(newPostIt);
-    this.saveData();
-    return newPostIt;
-  }
+	addWorkflow(wf) {
+		const newWf = { id: `wf-${Date.now()}`, ...wf };
+		this.data.enterprise.workflows.push(newWf);
+		return newWf;
+	}
 
-  likePostIt(id) {
-    if (!this.data.postIts) return null;
-    const item = this.data.postIts.find(p => String(p.id) === String(id));
-    if (item) {
-      item.likes = (item.likes || 0) + 1;
-      this.saveData();
-      return item;
-    }
-    return null;
-  }
+	toggleChecklist(id) {
+		const item = this.data.enterprise.checklists.find((c) => c.id === id);
 
-  getCoffeeChats(tableId = 'ia') {
-    if (!this.data.coffeeChats) this.data.coffeeChats = {};
-    return this.data.coffeeChats[tableId] || [];
-  }
+		if (item) {
+			if (item.status === "Concluído") item.status = "A Fazer";
+			else if (item.status === "A Fazer") item.status = "Em Andamento";
+			else item.status = "Concluído";
 
-  addCoffeeMessage(tableId = 'ia', message) {
-    if (!this.data.coffeeChats) this.data.coffeeChats = {};
-    if (!this.data.coffeeChats[tableId]) this.data.coffeeChats[tableId] = [];
+			return item;
+		}
 
-    const newMsg = {
-      id: `cmsg-${Date.now()}`,
-      user: message.user || 'Você (UFPE)',
-      text: message.text,
-      time: message.time || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      timestamp: new Date().toISOString()
-    };
-    this.data.coffeeChats[tableId].push(newMsg);
-    this.saveData();
-    return newMsg;
-  }
+		return null;
+	}
 
-  // -------------------------------------------------------------
-  // Real Student Academic Record (Passo 4 - SIGAA Integration)
-  // Agora armazenado por UID do usuário
-  // -------------------------------------------------------------
-  getStudentAcademicRecord(uid) {
-    if (!uid) {
-      console.warn('Attempted to get student record without UID.');
-      return null;
-    }
-    return this.data.studentAcademicRecords[uid] || null;
-  }
+	addChecklist(item) {
+		const newItem = {
+			id: `chk-${Date.now()}`,
+			text: item.text,
+			status: item.status || "A Fazer",
+			assignedTo: item.assignedTo || "Secretariado Executivo",
+			dueDate: item.dueDate || "2026-11-20",
+		};
 
-  saveStudentAcademicRecord(uid, record) {
-    if (!uid) {
-      console.error('Attempted to save student record without UID.');
-      return null;
-    }
-    this.data.studentAcademicRecords[uid] = record;
-    this.saveData();
-    return this.data.studentAcademicRecords[uid];
-  }
+		this.data.enterprise.checklists.push(newItem);
+		return newItem;
+	}
+
+	updateSwot(swotData) {
+		this.data.enterprise.swot = {
+			...this.data.enterprise.swot,
+			...swotData,
+		};
+
+		return this.data.enterprise.swot;
+	}
+
+	addDocument(doc) {
+		const newDoc = {
+			id: `doc-${Date.now()}`,
+			title: doc.title,
+			type: doc.type || "Documento Administrativo",
+			agent: doc.agent || "FACUL DOCS",
+			createdAt: new Date().toISOString().split("T")[0],
+			content: doc.content,
+		};
+
+		this.data.enterprise.documents.unshift(newDoc);
+		return newDoc;
+	}
+
+	// --- POST-ITS (FIRESTORE) ---
+
+	async getPostIts() {
+		const snapshot = await db
+			.collection("postIts")
+			.orderBy("createdAt", "desc")
+			.get();
+
+		return snapshot.docs.map(serializePostIt);
+	}
+
+	async addPostIt(postIt) {
+		if (!postIt.authorUid) {
+			throw new Error("UID do autor é obrigatório para criar um Post-it.");
+		}
+
+		if (!postIt.text?.trim()) {
+			throw new Error("O texto do Post-it é obrigatório.");
+		}
+
+		const newPostIt = {
+			authorUid: postIt.authorUid,
+			author: postIt.author || "Estudante Conectado",
+			avatar: postIt.avatar || "🎓",
+			text: postIt.text.trim(),
+			tag: postIt.tag || "Comunidade UFPE",
+			color: postIt.color || "bg-sky-100 border-sky-300 text-sky-900",
+			likes: 1,
+			createdAt: new Date(),
+		};
+
+		const docRef = await db.collection("postIts").add(newPostIt);
+
+		return {
+			...newPostIt,
+			id: docRef.id,
+			createdAt: newPostIt.createdAt.toISOString(),
+		};
+	}
+
+	async likePostIt(id) {
+		const docRef = db.collection("postIts").doc(String(id));
+
+		return db.runTransaction(async (transaction) => {
+			const doc = await transaction.get(docRef);
+
+			if (!doc.exists) {
+				return null;
+			}
+
+			const data = doc.data();
+			const currentLikes = Number(data.likes) || 0;
+			const updatedLikes = currentLikes + 1;
+
+			transaction.update(docRef, {
+				likes: updatedLikes,
+			});
+
+			const createdAt = data.createdAt?.toDate
+				? data.createdAt.toDate().toISOString()
+				: (data.createdAt ?? null);
+
+			return {
+				...data,
+				id: doc.id,
+				likes: updatedLikes,
+				createdAt,
+			};
+		});
+	}
+
+	// --- COFFEE CHATS (MEMÓRIA RAM) ---
+
+	getCoffeeChats(tableId = "ia") {
+		if (!this.data.coffeeChats) {
+			this.data.coffeeChats = {};
+		}
+
+		return this.data.coffeeChats[tableId] || [];
+	}
+
+	addCoffeeMessage(tableId = "ia", message) {
+		if (!this.data.coffeeChats) {
+			this.data.coffeeChats = {};
+		}
+
+		if (!this.data.coffeeChats[tableId]) {
+			this.data.coffeeChats[tableId] = [];
+		}
+
+		const newMsg = {
+			id: `cmsg-${Date.now()}`,
+			user: message.user || "Você (UFPE)",
+			text: message.text,
+			time:
+				message.time ||
+				new Date().toLocaleTimeString("pt-BR", {
+					hour: "2-digit",
+					minute: "2-digit",
+				}),
+			timestamp: new Date().toISOString(),
+		};
+
+		this.data.coffeeChats[tableId].push(newMsg);
+		return newMsg;
+	}
+
+	// --- DADOS REAIS DO SIGAA (FIRESTORE) ---
+
+	async getStudentAcademicRecord(uid) {
+		if (!uid) {
+			console.warn("[Store] Tentativa de buscar histórico sem UID.");
+			return null;
+		}
+
+		try {
+			const doc = await db.collection("students").doc(uid).get();
+
+			if (!doc.exists) {
+				return null;
+			}
+
+			return doc.data();
+		} catch (error) {
+			console.error(`[Store] Erro Firestore GET UID ${uid}:`, error);
+			throw error;
+		}
+	}
+
+	async saveStudentAcademicRecord(uid, record) {
+		if (!uid) {
+			console.error("[Store] Tentativa de salvar histórico sem UID.");
+			return null;
+		}
+
+		try {
+			// Sobrescreve o histórico para refletir os dados atuais do SIGAA.
+			await db.collection("students").doc(uid).set(record, {
+				merge: false,
+			});
+
+			return record;
+		} catch (error) {
+			console.error(`[Store] Erro Firestore SET UID ${uid}:`, error);
+			throw error;
+		}
+	}
 }
 
 export const dataStore = new DataStore();

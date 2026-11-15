@@ -9,10 +9,13 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "start": "concurrently \"node server/index.js\" \"vite\""
+    "start": "concurrently \"node --env-file=.env server/index.js\" \"vite\""
   },
   "dependencies": {
+    "@google/genai": "^3.3.0",
     "@google/generative-ai": "^0.24.1",
+    "axios": "^1.21.1",
+    "axios-cookiejar-support": "^7.0.0",
     "canvas-confetti": "^1.9.4",
     "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
@@ -22,10 +25,11 @@
     "firebase": "^13.2.0",
     "firebase-admin": "^12.7.0",
     "lucide-react": "^1.16.0",
-    "puppeteer": "^25.16.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tailwind-merge": "^3.0.2"
+    "react-markdown": "^10.1.0",
+    "tailwind-merge": "^3.0.2",
+    "tough-cookie": "^6.1.0"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",

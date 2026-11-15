@@ -1,0 +1,56 @@
+[
+  {
+    "name": "width",
+    "id": "width",
+    "type": "hidden",
+    "value": "800"
+  },
+  {
+    "name": "height",
+    "id": "height",
+    "type": "hidden",
+    "value": "600"
+  },
+  {
+    "name": "urlRedirect",
+    "id": null,
+    "type": "hidden",
+    "value": ""
+  },
+  {
+    "name": "subsistemaRedirect",
+    "id": null,
+    "type": "hidden",
+    "value": ""
+  },
+  {
+    "name": "acao",
+    "id": null,
+    "type": "hidden",
+    "value": ""
+  },
+  {
+    "name": "acessibilidade",
+    "id": null,
+    "type": "hidden",
+    "value": ""
+  },
+  {
+    "name": "user.login",
+    "id": null,
+    "type": "text",
+    "value": ""
+  },
+  {
+    "name": "user.senha",
+    "id": null,
+    "type": "password",
+    "value": ""
+  },
+  {
+    "name": null,
+    "id": null,
+    "type": "submit",
+    "value": "Entrar"
+  }
+]
