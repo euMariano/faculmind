@@ -2,9 +2,7 @@ export type ActiveTab =
 	| "academic"
 	| "opportunities"
 	| "pausa-mind"
-	| "virtual-room"
-	| "coordinator"
-	| "enterprise";
+	| "virtual-room";
 
 export interface StudentTurma {
 	id: string;
@@ -25,7 +23,20 @@ export interface StudentTurma {
 		unidade2?: number | null;
 		unidade3?: number | null;
 		mediaParcial?: number | null;
+
+		avaliacoes?: Array<{
+			codigo: string;
+			denominacao: string | null;
+			nota: number | null;
+			peso: number | null;
+		}>;
+
+		mediaAvaliacoes?: number | null;
+		provaFinal?: number | null;
+		resultado?: string | null;
+		situacao?: string | null;
 	} | null;
+	notasDisponiveis?: boolean;
 	status?: string | null;
 }
 
@@ -130,97 +141,6 @@ export interface ClinicAppointment {
 	traineeAssigned: string;
 	notes: string;
 	createdAt: string;
-}
-
-export interface PermanenciaStats {
-	totalResponses: number;
-	retentionRate: number;
-	engagementScore: number;
-	moodStats: {
-		focado: number;
-		ansioso: number;
-		exausto: number;
-		disposto: number;
-	};
-	riskAlerts: Array<{
-		course: string;
-		riskLevel: "Baixo" | "Médio" | "Alto";
-		mainCause: string;
-		affectedCount: number;
-	}>;
-}
-
-export interface OrgNode {
-	id: string;
-	title: string;
-	name: string;
-	role: string;
-	department: string;
-	level: number;
-	reportsTo: string | null;
-	responsibilities: string[];
-}
-
-export interface WorkflowStep {
-	order: number;
-	name: string;
-	actor: string;
-	action: string;
-	time: string;
-}
-
-export interface Workflow {
-	id: string;
-	name: string;
-	agent: string;
-	trigger: string;
-	steps: WorkflowStep[];
-	mermaid: string;
-	bottlenecks: string[];
-}
-
-export interface ChecklistItem {
-	id: string;
-	text: string;
-	status: "A Fazer" | "Em Andamento" | "Concluído";
-	assignedTo: string;
-	dueDate: string;
-}
-
-export interface Plan5W2H {
-	what: string;
-	why: string;
-	where: string;
-	when: string;
-	who: string;
-	how: string;
-	howMuch: string;
-}
-
-export interface SwotData {
-	strengths: string[];
-	weaknesses: string[];
-	opportunities: string[];
-	threats: string[];
-	plan5W2H: Plan5W2H[];
-}
-
-export interface EnterpriseDocument {
-	id: string;
-	title: string;
-	type: string;
-	agent: string;
-	createdAt: string;
-	content: string;
-}
-
-export interface EnterpriseState {
-	companyName: string;
-	organization: OrgNode[];
-	workflows: Workflow[];
-	checklists: ChecklistItem[];
-	swot: SwotData;
-	documents: EnterpriseDocument[];
 }
 
 export interface ChatMessage {

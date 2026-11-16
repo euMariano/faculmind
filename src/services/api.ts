@@ -1,18 +1,11 @@
 import type {
-	ChecklistItem,
 	ClinicAppointment,
 	CoffeeChatMessage,
-	EnterpriseDocument,
-	EnterpriseState,
 	Opportunity,
-	OrgNode,
-	PermanenciaStats,
 	PostIt,
 	StudentAcademicRecord,
-	SwotData,
 	Ticket,
 	UniversityNotice,
-	Workflow,
 } from "../types";
 
 const API_BASE = "/api";
@@ -256,15 +249,6 @@ export const createApi = (getToken: () => Promise<string | null>) => ({
 	},
 
 	// Permanência Stats
-	async getPermanencia(): Promise<PermanenciaStats> {
-		const authHeaders = await getAuthHeaders(getToken);
-		const res = await fetch(`${API_BASE}/permanencia`, {
-			headers: authHeaders,
-		});
-		if (!res.ok) throw new Error("Falha ao obter estatísticas de permanência");
-		return res.json();
-	},
-
 	async submitPermanencia(survey: {
 		mood: string;
 		notes?: string;
@@ -278,81 +262,6 @@ export const createApi = (getToken: () => Promise<string | null>) => ({
 			body: JSON.stringify(survey),
 		});
 		if (!res.ok) throw new Error("Falha ao registrar diagnóstico");
-		return res.json();
-	},
-
-	// Enterprise
-	async getEnterpriseData(): Promise<EnterpriseState> {
-		const authHeaders = await getAuthHeaders(getToken);
-		const res = await fetch(`${API_BASE}/enterprise`, { headers: authHeaders });
-		if (!res.ok) throw new Error("Falha ao obter dados empresariais");
-		return res.json();
-	},
-
-	async updateOrgChart(organization: OrgNode[]): Promise<OrgNode[]> {
-		const authHeaders = await getAuthHeaders(getToken);
-		const res = await fetch(`${API_BASE}/enterprise/organization`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json", ...authHeaders },
-			body: JSON.stringify({ organization }),
-		});
-		if (!res.ok) throw new Error("Falha ao atualizar organograma");
-		return res.json();
-	},
-
-	async addWorkflow(workflow: Partial<Workflow>): Promise<Workflow> {
-		const authHeaders = await getAuthHeaders(getToken);
-		const res = await fetch(`${API_BASE}/enterprise/workflows`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json", ...authHeaders },
-			body: JSON.stringify(workflow),
-		});
-		if (!res.ok) throw new Error("Falha ao salvar fluxo");
-		return res.json();
-	},
-
-	async toggleChecklist(id: string): Promise<ChecklistItem> {
-		const authHeaders = await getAuthHeaders(getToken);
-		const res = await fetch(`${API_BASE}/enterprise/checklists/${id}/toggle`, {
-			method: "PUT",
-			headers: authHeaders,
-		});
-		if (!res.ok) throw new Error("Falha ao alternar checklist");
-		return res.json();
-	},
-
-	async addChecklist(item: Partial<ChecklistItem>): Promise<ChecklistItem> {
-		const authHeaders = await getAuthHeaders(getToken);
-		const res = await fetch(`${API_BASE}/enterprise/checklists`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json", ...authHeaders },
-			body: JSON.stringify(item),
-		});
-		if (!res.ok) throw new Error("Falha ao adicionar tarefa");
-		return res.json();
-	},
-
-	async updateSwot(swot: Partial<SwotData>): Promise<SwotData> {
-		const authHeaders = await getAuthHeaders(getToken);
-		const res = await fetch(`${API_BASE}/enterprise/swot`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json", ...authHeaders },
-			body: JSON.stringify(swot),
-		});
-		if (!res.ok) throw new Error("Falha ao salvar SWOT");
-		return res.json();
-	},
-
-	async addDocument(
-		doc: Partial<EnterpriseDocument>,
-	): Promise<EnterpriseDocument> {
-		const authHeaders = await getAuthHeaders(getToken);
-		const res = await fetch(`${API_BASE}/enterprise/documents`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json", ...authHeaders },
-			body: JSON.stringify(doc),
-		});
-		if (!res.ok) throw new Error("Falha ao salvar documento");
 		return res.json();
 	},
 });

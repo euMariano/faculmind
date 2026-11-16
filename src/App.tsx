@@ -5,8 +5,6 @@ import { AcademicPortal } from './components/academic/AcademicPortal';
 import { OpportunitiesFeed } from './components/academic/OpportunitiesFeed';
 import { PausaMindHub } from './components/relax/PausaMindHub';
 import { VirtualRoom3D } from './components/academic/VirtualRoom3D';
-import { DashboardCoordinator } from './components/institutional/DashboardCoordinator';
-import { EnterprisePlatform } from './components/enterprise/EnterprisePlatform';
 import { FaculMindChatModal } from './components/chat/FaculMindChatModal';
 import { useAuth } from './context/AuthContext';
 import { ApiProvider, useApi } from './context/ApiContext';
@@ -90,10 +88,6 @@ const AppContent: React.FC = () => {
       setActiveTab('pausa-mind');
     } else if (target === 'virtual-room') {
       setActiveTab('virtual-room');
-    } else if (target === 'coordinator') {
-      setActiveTab('coordinator');
-    } else if (target === 'enterprise') {
-      setActiveTab('enterprise');
     }
     setIsChatOpen(false);
   };
@@ -180,10 +174,6 @@ const AppContent: React.FC = () => {
         {activeTab === 'opportunities' && <OpportunitiesFeed />}
         {activeTab === 'pausa-mind' && <PausaMindHub />}
         {activeTab === 'virtual-room' && <VirtualRoom3D currentUser={currentUser} />}
-        {activeTab === 'coordinator' && <DashboardCoordinator />}
-        {activeTab === 'enterprise' && (
-          <EnterprisePlatform openChat={(agent) => handleOpenChat(agent)} />
-        )}
       </main>
 
       <FaculMindChatModal

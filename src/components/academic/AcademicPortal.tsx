@@ -2,31 +2,21 @@ import {
 	ArrowRight,
 	BookOpen,
 	Calendar,
-	CheckCircle2,
 	ChevronRight,
-	Coffee,
 	Coins,
-	Compass,
 	ExternalLink,
 	FileText,
-	Frown,
 	GraduationCap,
-	Heart,
 	HelpCircle,
 	MessageSquare,
-	Search,
 	ShieldAlert,
-	Smile,
 	Sparkles,
-	Users,
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { sound } from "../../services/sound";
 import type { StudentAcademicRecord } from "../../types";
-import { ClinicAppointmentModal } from "./ClinicAppointmentModal";
 import { OmbudsmanModal } from "./OmbudsmanModal";
-import { RadarPermanenciaModal } from "./RadarPermanenciaModal";
 import { SigaaSyncModal } from "./SigaaSyncModal";
 
 interface AcademicPortalProps {
@@ -42,12 +32,8 @@ export const AcademicPortal: React.FC<AcademicPortalProps> = ({
 	syncedStudent,
 	onSyncStudent,
 }) => {
-	const [selectedMood, setSelectedMood] = useState<string | null>(null);
-	const [showPermanenciaModal, setShowPermanenciaModal] = useState(false);
 	const [showOmbudsmanModal, setShowOmbudsmanModal] = useState(false);
-	const [showClinicModal, setShowClinicModal] = useState(false);
 	const [showSigaaModal, setShowSigaaModal] = useState(false);
-	const [searchQuery, setSearchQuery] = useState("");
 
 	const quickCards = [
 		{
@@ -79,13 +65,6 @@ export const AcademicPortal: React.FC<AcademicPortalProps> = ({
 			action: () => setShowSigaaModal(true),
 		},
 		{
-			id: "apoio",
-			title: "Apoio Estudantil",
-			icon: Users,
-			desc: "Acolhimento da clínica de psicologia e assistência social.",
-			action: () => setShowClinicModal(true),
-		},
-		{
 			id: "editais",
 			title: "Editais e Seleções",
 			icon: FileText,
@@ -100,12 +79,6 @@ export const AcademicPortal: React.FC<AcademicPortalProps> = ({
 			action: () => openChat("agy-ufpe"),
 		},
 	];
-
-	const handleMoodSelect = (mood: string) => {
-		setSelectedMood(mood);
-		sound.playPop();
-		setShowPermanenciaModal(true);
-	};
 
 	return (
 		<div className="space-y-6 pb-12">
@@ -134,12 +107,6 @@ export const AcademicPortal: React.FC<AcademicPortalProps> = ({
 					</span>
 					<span className="hover:text-white cursor-pointer transition">
 						Serviços
-					</span>
-					<span
-						onClick={() => setShowPermanenciaModal(true)}
-						className="hover:text-white cursor-pointer font-bold underline decoration-rose-300 underline-offset-4"
-					>
-						Permanência Estudantil
 					</span>
 					<button
 						onClick={() => {
@@ -268,7 +235,7 @@ export const AcademicPortal: React.FC<AcademicPortalProps> = ({
 								<strong className="text-emerald-700">
 									{syncedStudent.cr ?? "Indisponível"}
 								</strong>{" "}
-								• {syncedStudent.turmas.length} turmas monitoradas pelo Radar
+								• {syncedStudent.turmas.length} turmas monitoradas
 							</p>
 						</div>
 					</div>
@@ -308,7 +275,7 @@ export const AcademicPortal: React.FC<AcademicPortalProps> = ({
 					</span>
 				</div>
 
-				<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+				<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
 					{quickCards.map((card) => {
 						const Icon = card.icon;
 						return (
@@ -337,166 +304,56 @@ export const AcademicPortal: React.FC<AcademicPortalProps> = ({
 				</div>
 			</div>
 
-			{/* Three Pillars Section (Radar de Permanência, Destaques, Apoio) */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-				{/* Card 1: Radar de Permanência */}
-				<div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs flex flex-col justify-between hover:shadow-md transition">
-					<div>
-						<div className="flex items-center justify-between mb-3">
-							<div className="flex items-center gap-2">
-								<div className="w-8 h-8 rounded-xl bg-rose-100 text-ufpe-burgundy flex items-center justify-center">
-									<Compass size={18} />
-								</div>
-								<h4 className="font-bold text-sm text-slate-800">
-									Radar de Permanência
-								</h4>
-							</div>
-							<span className="text-[10px] bg-rose-50 text-ufpe-burgundy px-2 py-0.5 rounded-full font-bold">
-								UFPE Viva
-							</span>
+			{/* Ouvidoria Anônima Section */}
+			<div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition">
+				<div className="space-y-3 max-w-2xl">
+					<div className="flex items-center gap-3">
+						<div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+							<ShieldAlert size={20} />
 						</div>
-
-						<p className="text-xs text-slate-600 leading-relaxed mb-4">
-							Como você está se sentindo com a rotina acadêmica nesta semana?
-							Sua resposta é anônima e ajuda a coordenação a apoiar sua turma.
-						</p>
-
-						<div className="grid grid-cols-2 gap-2 mb-4">
-							{[
-								{
-									id: "focado",
-									label: "🎯 Focado(a)",
-									bg: "hover:bg-emerald-50 hover:border-emerald-200",
-								},
-								{
-									id: "ansioso",
-									label: "🤯 Ansioso(a)",
-									bg: "hover:bg-amber-50 hover:border-amber-200",
-								},
-								{
-									id: "exausto",
-									label: "😴 Exausto(a)",
-									bg: "hover:bg-rose-50 hover:border-rose-200",
-								},
-								{
-									id: "disposto",
-									label: "☕ Disposto(a)",
-									bg: "hover:bg-sky-50 hover:border-sky-200",
-								},
-							].map((mood) => (
-								<button
-									key={mood.id}
-									onClick={() => handleMoodSelect(mood.id)}
-									className={`text-xs font-semibold py-2 px-3 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-700 transition text-left ${mood.bg}`}
-								>
-									{mood.label}
-								</button>
-							))}
-						</div>
-					</div>
-
-					<button
-						onClick={() => {
-							setShowPermanenciaModal(true);
-							sound.playPop();
-						}}
-						className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1.5 transition"
-					>
-						<span>Ver Termômetro Discente</span>
-						<ArrowRight size={14} />
-					</button>
-				</div>
-
-				{/* Card 2: Da Reclamação à Solução (Ouvidoria Anônima) */}
-				<div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs flex flex-col justify-between hover:shadow-md transition">
-					<div>
-						<div className="flex items-center justify-between mb-3">
+						<div>
 							<div className="flex items-center gap-2">
-								<div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
-									<ShieldAlert size={18} />
-								</div>
-								<h4 className="font-bold text-sm text-slate-800">
+								<h4 className="font-bold text-base text-slate-800">
 									Da Reclamação à Solução
 								</h4>
+								<span className="text-[10px] bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full font-bold">
+									100% Anônimo
+								</span>
 							</div>
-							<span className="text-[10px] bg-amber-50 text-amber-800 px-2 py-0.5 rounded-full font-bold">
-								100% Anônimo
-							</span>
-						</div>
-
-						<p className="text-xs text-slate-600 leading-relaxed mb-4">
-							Encontrou problemas com ar-condicionado, conflito de horários de
-							disciplinas ou atendimento departamental? Registre com pseudônimo
-							e receba protocolo oficial rastreável.
-						</p>
-
-						<div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-1 mb-4 text-xs">
-							<div className="flex items-center justify-between font-bold text-slate-700">
-								<span>Protocolos em Resolução</span>
-								<span className="text-ufpe-burgundy">2 ativos</span>
-							</div>
-							<p className="text-[11px] text-slate-500">
-								SIB/UFPE: Extensão de horário da Biblioteca Noturna em
-								deliberação.
+							<p className="text-xs text-slate-500">
+								Ouvidoria Discente e Canal de Manifestações UFPE
 							</p>
 						</div>
 					</div>
 
+					<p className="text-xs text-slate-600 leading-relaxed">
+						Encontrou problemas com ar-condicionado, conflito de horários de
+						disciplinas ou atendimento departamental? Registre com pseudônimo
+						e receba protocolo oficial rastreável.
+					</p>
+
+					<div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-1 text-xs">
+						<div className="flex items-center justify-between font-bold text-slate-700">
+							<span>Protocolos em Resolução</span>
+							<span className="text-ufpe-burgundy">2 ativos</span>
+						</div>
+						<p className="text-[11px] text-slate-500">
+							SIB/UFPE: Extensão de horário da Biblioteca Noturna em
+							deliberação.
+						</p>
+					</div>
+				</div>
+
+				<div className="shrink-0">
 					<button
 						onClick={() => {
 							setShowOmbudsmanModal(true);
 							sound.playPop();
 						}}
-						className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
+						className="w-full md:w-auto py-3 px-6 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs"
 					>
 						<span>Registrar Manifestação Segura</span>
 						<ArrowRight size={14} />
-					</button>
-				</div>
-
-				{/* Card 3: Apoio Psicológico & Acolhimento */}
-				<div className="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-xs flex flex-col justify-between hover:shadow-md transition">
-					<div>
-						<div className="flex items-center justify-between mb-3">
-							<div className="flex items-center gap-2">
-								<div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
-									<Heart size={18} />
-								</div>
-								<h4 className="font-bold text-sm text-slate-800">
-									Clínica-Escola de Psicologia
-								</h4>
-							</div>
-							<span className="text-[10px] bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
-								Atendimento Gratuito
-							</span>
-						</div>
-
-						<p className="text-xs text-slate-600 leading-relaxed mb-4">
-							Estudantes dos últimos períodos de Psicologia da UFPE oferecem
-							escuta acolhedora sob supervisão docente (CRP-02). Sem
-							julgamentos, com total sigilo.
-						</p>
-
-						<div className="bg-emerald-50/60 p-3 rounded-2xl border border-emerald-100 space-y-1.5 mb-2 text-xs">
-							<div className="flex items-center gap-1.5 text-emerald-900 font-bold">
-								<CheckCircle2 size={14} className="text-emerald-700" />
-								<span>Supervisão Docente Ativa</span>
-							</div>
-							<p className="text-[11px] text-emerald-800">
-								Atendimentos presenciais no CFCH ou online via canal protegido.
-							</p>
-						</div>
-					</div>
-
-					<button
-						onClick={() => {
-							setShowClinicModal(true);
-							sound.playPop();
-						}}
-						className="w-full mt-4 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
-					>
-						<Heart size={14} className="fill-white" />
-						<span>Agendar com a Clínica-Escola</span>
 					</button>
 				</div>
 			</div>
@@ -545,19 +402,9 @@ export const AcademicPortal: React.FC<AcademicPortalProps> = ({
 			</div>
 
 			{/* Modals */}
-			<RadarPermanenciaModal
-				isOpen={showPermanenciaModal}
-				onClose={() => setShowPermanenciaModal(false)}
-			/>
-
 			<OmbudsmanModal
 				isOpen={showOmbudsmanModal}
 				onClose={() => setShowOmbudsmanModal(false)}
-			/>
-
-			<ClinicAppointmentModal
-				isOpen={showClinicModal}
-				onClose={() => setShowClinicModal(false)}
 			/>
 
 			<SigaaSyncModal

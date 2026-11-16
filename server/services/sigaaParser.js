@@ -230,3 +230,124 @@ export function parseSigaaContent(html, meta = {}) {
 		username: meta.studentName || null,
 	});
 }
+
+/**
+ * Extrai as notas de um aluno específico do relatório da Turma Virtual.
+ * Não retorna dados de outros estudantes.
+ */
+export function parseSigaaNotesReport(html, matricula) {
+	const $ = cheerio.load(html || "");
+
+	const $report = $("#relatorio");
+	const $table = $report.find("table.tabelaRelatorio").first();
+
+	if (!$report.length || !$table.length) {
+		throw new Error("Relatório de notas não encontrado.");
+	}
+
+	const targetMatricula = String(matricula || "").replace(/\D/g, "");
+
+	if (!targetMatricula) {
+		throw new Error("Matrícula do aluno não fornecida.");
+	}
+
+	const normalizeMatricula = (value) => String(value || "").replace(/\D/g, "");
+
+	const cleanText = (value) => {
+		const text = String(value || "")
+			.replace(/\s+/g, " ")
+			.trim();
+
+		return !text || /^[-–—]+$/.test(text) ? null : text;
+	};
+
+	const parseNumber = (value) => {
+		const text = cleanText(value);
+
+		if (text === null) return null;
+
+		const number = Number(text.replace(",", "."));
+
+		return Number.isFinite(number) ? number : null;
+	};
+
+	// Localiza exclusivamente a linha correspondente à matrícula autenticada.
+	const $studentRow = $table
+		.find("tbody tr")
+		.filter((_, element) => {
+			const studentMatricula = $(element).children("td").first().text();
+
+			return normalizeMatricula(studentMatricula) === targetMatricula;
+		})
+		.first();
+
+	if (!$studentRow.length) {
+		throw new Error("Aluno autenticado não encontrado no relatório de notas.");
+	}
+
+	const cells = $studentRow.children("td");
+
+	const $headerRow = $table.find('tr[id="trAval"]').first();
+	const $headers = $headerRow.children("th");
+
+	if (!$headerRow.length || cells.length !== $headers.length) {
+		throw new Error(
+			"Não foi possível associar as colunas do relatório às notas.",
+		);
+	}
+
+	const cellText = (index) => cells.eq(index).text().trim();
+
+	const evaluations = [];
+
+	// Identifica dinamicamente AV1, AV2 e outras avaliações.
+	$headers.each((index, element) => {
+		const $header = $(element);
+		const headerId = $header.attr("id") || "";
+
+		if (!headerId.startsWith("aval_")) return;
+
+		const evaluationId = headerId.slice("aval_".length);
+
+		const getHiddenValue = (prefix) =>
+			$table.find(`[id="${prefix}_${evaluationId}"]`).attr("value") || null;
+
+		evaluations.push({
+			codigo: $header.text().trim(),
+			denominacao: cleanText(getHiddenValue("denAval")),
+			nota: parseNumber(cellText(index)),
+			peso: parseNumber(getHiddenValue("pesoAval")),
+		});
+	});
+
+	// As colunas com id "unid" representam a média das avaliações
+	// e a nota da prova final, respectivamente.
+	const unitIndexes = [];
+
+	$headers.each((index, element) => {
+		if ($(element).attr("id") === "unid") {
+			unitIndexes.push(index);
+		}
+	});
+
+	const mediaAvaliacoes =
+		unitIndexes.length > 0 ? parseNumber(cellText(unitIndexes[0])) : null;
+
+	const provaFinal =
+		unitIndexes.length > 1 ? parseNumber(cellText(unitIndexes[1])) : null;
+
+	// As quatro últimas colunas são:
+	// Média Parcial, Resultado, Faltas e Situação.
+	const lastIndex = cells.length;
+
+	return {
+		matricula: targetMatricula,
+		avaliacoes: evaluations,
+		mediaAvaliacoes,
+		provaFinal,
+		mediaParcial: parseNumber(cellText(lastIndex - 4)),
+		resultado: cleanText(cellText(lastIndex - 3)),
+		faltas: parseNumber(cellText(lastIndex - 2)),
+		situacao: cleanText(cellText(lastIndex - 1)),
+	};
+}

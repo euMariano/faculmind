@@ -386,59 +386,9 @@ app.post("/api/clinic", authenticateToken, (req, res) => {
 	res.status(201).json(appt);
 });
 
-app.get("/api/permanencia", authenticateToken, (req, res) => {
-	res.json(dataStore.getPermanenciaStats());
-});
-
 app.post("/api/permanencia", authenticateToken, (req, res) => {
 	const updated = dataStore.submitPermanenciaSurvey(req.body);
 	res.json({ success: true, stats: updated });
-});
-
-// -------------------------------------------------------------
-// Enterprise & Secretarial System
-// -------------------------------------------------------------
-app.get("/api/enterprise", authenticateToken, (req, res) => {
-	res.json(dataStore.getEnterpriseData());
-});
-
-app.post("/api/enterprise/organization", authenticateToken, (req, res) => {
-	const { organization } = req.body;
-	if (!organization || !Array.isArray(organization)) {
-		return res.status(400).json({ error: "Estrutura inválida de organograma" });
-	}
-	const updated = dataStore.updateOrgChart(organization);
-	res.json(updated);
-});
-
-app.post("/api/enterprise/workflows", authenticateToken, (req, res) => {
-	const newWf = dataStore.addWorkflow(req.body);
-	res.status(201).json(newWf);
-});
-
-app.post("/api/enterprise/checklists", authenticateToken, (req, res) => {
-	const item = dataStore.addChecklist(req.body);
-	res.status(201).json(item);
-});
-
-app.put(
-	"/api/enterprise/checklists/:id/toggle",
-	authenticateToken,
-	(req, res) => {
-		const updated = dataStore.toggleChecklist(req.params.id);
-		if (!updated) return res.status(404).json({ error: "Item não encontrado" });
-		res.json(updated);
-	},
-);
-
-app.post("/api/enterprise/swot", authenticateToken, (req, res) => {
-	const updated = dataStore.updateSwot(req.body);
-	res.json(updated);
-});
-
-app.post("/api/enterprise/documents", authenticateToken, (req, res) => {
-	const newDoc = dataStore.addDocument(req.body);
-	res.status(201).json(newDoc);
 });
 
 // Start Express Server

@@ -4,8 +4,6 @@ import {
   Briefcase, 
   Sparkles, 
   Compass, 
-  BarChart3, 
-  Building2, 
   Volume2, 
   VolumeX, 
   MessageSquare,
@@ -67,20 +65,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       icon: Briefcase,
       badge: 'Interdisciplinar',
       color: 'hover:text-indigo-600'
-    },
-    {
-      id: 'coordinator' as ActiveTab,
-      label: 'Painel Gestão IES',
-      icon: BarChart3,
-      badge: 'Reitoria',
-      color: 'hover:text-teal-700'
-    },
-    {
-      id: 'enterprise' as ActiveTab,
-      label: 'Facul Mind Empresarial',
-      icon: Building2,
-      badge: 'Secretariado',
-      color: 'hover:text-mind-green'
     }
   ];
 
@@ -90,7 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="bg-ufpe-burgundy text-white px-4 py-1 text-xs font-medium flex items-center justify-between">
         <div className="flex items-center gap-2 mx-auto sm:mx-0">
           <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          <span>Ecossistema Facul Mind 2026 • Integração UFPE & Gestão Secretarial Multi-Agentes</span>
+          <span>Ecossistema Facul Mind 2026 • Integração UFPE & Apoio Estudantil</span>
         </div>
         <div className="hidden sm:flex items-center gap-4 text-rose-100">
           {currentUserEmail && (

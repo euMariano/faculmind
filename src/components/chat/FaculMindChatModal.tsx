@@ -173,8 +173,6 @@ export const FaculMindChatModal: React.FC<ChatModalProps> = ({
 				"Quero saber como me inscrever no auxílio permanência 2026.1 da UFPE.",
 				"Estou muito cansado e com ansiedade por causa das provas. Onde encontro apoio psicológico?",
 				"Como funciona a inscrição de projetos de extensão para validar horas complementares?",
-				"Ajuda a mapear o fluxo de atendimento da secretaria e identificar gargalos.",
-				"Crie uma ata de reunião ordinária para o alinhamento de projetos.",
 			];
 			const randomPrompt =
 				voiceSamples[Math.floor(Math.random() * voiceSamples.length)];
@@ -255,53 +253,6 @@ export const FaculMindChatModal: React.FC<ChatModalProps> = ({
 								<X size={16} />
 							</button>
 						</div>
-					</div>
-
-					{/* Agent Selector Bar */}
-					<div className="bg-slate-50 border-b border-slate-200/80 px-2 py-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar shrink-0">
-						{[
-							{
-								id: "agy-ufpe",
-								label: "🎓 Agy UFPE",
-								title: "Assistente Geral do Estudante",
-							},
-							{
-								id: "facul-organiza",
-								label: "🏢 ORGANIZA",
-								title: "Estrutura & Cargos",
-							},
-							{
-								id: "facul-fluxo",
-								label: "🔄 FLUXO",
-								title: "Mapeamento & BPMN",
-							},
-							{
-								id: "facul-estrategia",
-								label: "📈 ESTRATÉGIA",
-								title: "SWOT & 5W2H",
-							},
-							{
-								id: "facul-docs",
-								label: "📄 DOCS",
-								title: "Atas & Procedimentos",
-							},
-						].map((agent) => (
-							<button
-								key={agent.id}
-								onClick={() => {
-									setSelectedAgent(agent.id);
-									sound.playPop();
-								}}
-								className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition whitespace-nowrap ${
-									selectedAgent === agent.id
-										? "bg-white text-ufpe-burgundy shadow-xs border border-slate-200"
-										: "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-								}`}
-								title={agent.title}
-							>
-								{agent.label}
-							</button>
-						))}
 					</div>
 
 					{/* Synced Context Indicator */}

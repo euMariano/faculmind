@@ -71,9 +71,7 @@ faculmind/
 │       │   ├── SigaaSyncModal.tsx           # Sync SIGAA (414 LOC)
 │       │   ├── VirtualRoom3D.tsx            # Sala Virtual 3D (424 LOC)
 │       │   ├── OmbudsmanModal.tsx           # Ouvidoria anônima (390 LOC)
-│       │   ├── OpportunitiesFeed.tsx        # Radar oportunidades (319 LOC)
-│       │   ├── RadarPermanenciaModal.tsx    # Termômetro humor (267 LOC)
-│       │   └── ClinicAppointmentModal.tsx   # Clínica Psicologia (196 LOC)
+│       │   └── OpportunitiesFeed.tsx        # Radar oportunidades (319 LOC)
 │       ├── relax/
 │       │   ├── PausaMindHub.tsx             # Hub jogos (107 LOC)
 │       │   ├── ZenGardenCanvas.tsx          # Jardim Zen (239 LOC)
