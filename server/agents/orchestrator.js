@@ -69,6 +69,33 @@ export function invalidateUserCache(uid) {
 	}
 }
 
+const GEMINI_PRIMARY_MODEL =
+	process.env.GEMINI_MODEL?.trim() || "gemini-3.5-flash-lite";
+
+const GEMINI_FALLBACK_MODEL =
+	process.env.GEMINI_FALLBACK_MODEL?.trim() || "gemini-3.8-flash";
+
+function getGeminiHttpStatus(error) {
+	const candidates = [
+		error?.status,
+		error?.statusCode,
+		error?.cause?.status,
+		error?.cause?.statusCode,
+	];
+
+	const status = candidates
+		.map(Number)
+		.find((value) => Number.isInteger(value) && value > 0);
+
+	if (status) return status;
+
+	const match = String(error?.message || "").match(
+		/\b(408|429|500|502|503|504)\b/,
+	);
+
+	return match ? Number(match[1]) : null;
+}
+
 // -------------------------------------------------------------
 // Gemini caller
 // -------------------------------------------------------------
@@ -85,60 +112,119 @@ async function callGemini({
 		return { ok: false, reason: "not_configured" };
 	}
 
-	try {
-		const genAI = new GoogleGenAI({ apiKey });
-
-		const promptParts = [];
-
-		if (Object.keys(contextData).length > 0) {
-			promptParts.push(`Contexto:\n${JSON.stringify(contextData)}`);
-		}
-
-		if (history.length > 0) {
-			const historyText = history
-				.map((h) => `${h.sender === "user" ? "Aluno" : "Agý"}: ${h.text}`)
-				.join("\n");
-
-			promptParts.push(`Histórico recente:\n${historyText}`);
-		}
-
-		promptParts.push(`Mensagem atual:\n${message}`);
-
-		const result = await genAI.models.generateContent({
-			model: "gemini-3.5-flash-lite",
-			contents: promptParts.join("\n\n"),
-			config: {
-				systemInstruction,
-				maxOutputTokens: 1024,
-				temperature: 0.5,
+	const genAI = new GoogleGenAI({
+		apiKey,
+		httpOptions: {
+			retryOptions: {
+				attempts: 3,
+				initialDelay: 1,
+				maxDelay: 4,
+				expBase: 2,
+				jitter: 1,
+				httpStatusCodes: [408, 429, 500, 502, 503, 504],
 			},
-		});
+		},
+	});
 
-		const text = result.text?.trim();
+	const promptParts = [];
 
-		if (!text) {
-			return { ok: false, reason: "empty_response" };
-		}
-
-		return { ok: true, text };
-	} catch (err) {
-		const status = Number(err?.status || err?.statusCode);
-		const errorMessage = err?.message || "";
-
-		console.error("[Gemini Error]:", errorMessage);
-
-		const invalidKey =
-			status === 401 ||
-			status === 403 ||
-			/API_KEY_INVALID|API key not valid|invalid api key/i.test(errorMessage);
-
-		return {
-			ok: false,
-			reason: invalidKey ? "invalid_key" : "unavailable",
-		};
+	if (Object.keys(contextData).length > 0) {
+		promptParts.push(`Contexto:\n${JSON.stringify(contextData)}`);
 	}
-}
 
+	if (history.length > 0) {
+		const historyText = history
+			.map((h) => `${h.sender === "user" ? "Aluno" : "Agý"}: ${h.text}`)
+			.join("\n");
+
+		promptParts.push(`Histórico recente:\n${historyText}`);
+	}
+
+	promptParts.push(`Mensagem atual:\n${message}`);
+
+	const models = [...new Set([GEMINI_PRIMARY_MODEL, GEMINI_FALLBACK_MODEL])];
+
+	for (let index = 0; index < models.length; index++) {
+		const model = models[index];
+
+		try {
+			console.log(`[Gemini] Solicitando resposta com ${model}...`);
+
+			const result = await genAI.models.generateContent({
+				model,
+				contents: promptParts.join("\n\n"),
+				config: {
+					systemInstruction,
+					maxOutputTokens: 1024,
+					temperature: 0.5,
+				},
+			});
+
+			const text = result.text?.trim();
+
+			if (!text) {
+				return {
+					ok: false,
+					reason: "empty_response",
+				};
+			}
+
+			if (index > 0) {
+				console.log("[Gemini Fallback] Resposta obtida:", model);
+			}
+
+			return {
+				ok: true,
+				text,
+			};
+		} catch (err) {
+			const status = getGeminiHttpStatus(err);
+			const errorMessage = err?.message || "";
+
+			const invalidKey =
+				status === 401 ||
+				status === 403 ||
+				/API_KEY_INVALID|API key not valid|invalid api key/i.test(errorMessage);
+
+			if (invalidKey) {
+				console.error("[Gemini Error] Chave inválida:", errorMessage);
+
+				return {
+					ok: false,
+					reason: "invalid_key",
+				};
+			}
+
+			console.error("[Gemini Error]:", {
+				model,
+				status,
+				message: errorMessage,
+			});
+
+			const serverError = [500, 502, 503, 504].includes(status);
+
+			// Só troca de modelo depois de esgotar as tentativas
+			// do modelo principal e diante de falhas do servidor.
+			if (index === 0 && serverError && models.length > 1) {
+				console.warn(
+					`[Gemini Fallback] ${model} indisponível. Tentando ${models[1]}...`,
+				);
+
+				continue;
+			}
+
+			return {
+				ok: false,
+				reason: status === 429 ? "rate_limited" : "unavailable",
+			};
+		}
+	}
+
+	return {
+		ok: false,
+		reason: "unavailable",
+	};
+}
 // -------------------------------------------------------------
 // Detect if a question is personal (needs student data) or institutional
 // -------------------------------------------------------------
@@ -256,6 +342,7 @@ async function handleAgyUfpe(message, context, uid, history = []) {
 					curso: student.course,
 					cra: student.cra ?? student.cr ?? null,
 					turmas: student.turmas ?? [],
+					integralizacao: student.integralizacao ?? null,
 				}
 			: "Aluno sem sincronização ativa do SIGAA";
 	}
@@ -270,7 +357,12 @@ REGRAS OBRIGATÓRIAS:
 - NUNCA fabrique consultas SQL, queries ao banco, ou afirme que fez uma busca no sistema.
 - Responda em Markdown estruturado com tópicos, negrito e emojis acolhedores.
 - Seja empática, objetiva, e incentive o bem-estar mental do estudante.
-- Considere o histórico da conversa para manter coerência.`;
+- Considere o histórico da conversa para manter coerência.
+- Utilize os dados de integralização curricular quando estiverem presentes no contexto.
+- Diferencie disciplinas obrigatórias pendentes, disciplinas matriculadas e exigências adicionais como ENADE.
+- Disciplinas matriculadas continuam sendo pendências até que exista aprovação registrada.
+- Nunca contabilize exigências do ENADE como disciplinas.
+`;
 
 	const geminiResult = await callGemini({
 		message,
@@ -315,6 +407,8 @@ REGRAS OBRIGATÓRIAS:
 
 		empty_response:
 			"O Gemini não retornou uma resposta. Tente reformular sua pergunta.",
+		rate_limited:
+			"O serviço de IA recebeu muitas solicitações neste momento. Tente novamente em instantes.",
 	};
 
 	return {

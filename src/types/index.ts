@@ -40,6 +40,28 @@ export interface StudentTurma {
 	status?: string | null;
 }
 
+export interface StudentIntegralizacao {
+	totalObrigatoriasPendentes: number;
+
+	totalDisciplinasObrigatoriasPendentes: number;
+	totalDisciplinasMatriculadas: number;
+	totalDisciplinasSemMatriculaAtual: number;
+
+	disciplinasPendentes: Array<{
+		codigo: string;
+		disciplina: string;
+		cargaHoraria: number;
+		status: string | null;
+		matriculada: boolean;
+	}>;
+
+	exigenciasPendentes: Array<{
+		codigo: string;
+		descricao: string;
+		cargaHoraria: number;
+	}>;
+}
+
 export interface StudentAcademicRecord {
 	matricula: string | null;
 	name: string | null;
@@ -50,6 +72,7 @@ export interface StudentAcademicRecord {
 	cr: string | null;
 	status: string | null;
 	turmas: StudentTurma[];
+	integralizacao?: StudentIntegralizacao | null;
 	horasComplementares?: {
 		concluidas: number | null;
 		obrigatorias: number | null;

@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import * as pdfParseModule from "pdf-parse";
 
 function normalizeDisciplineName(value) {
 	return (value || "")
@@ -32,6 +33,196 @@ function extractStudentCR($portal) {
 	return value;
 }
 
+function extractIntegralizacao($portal) {
+	const result = {
+		percentualIntegralizado: null,
+		chObrigatoriaPendente: null,
+		chOptativaPendente: null,
+		chComplementarPendente: null,
+		chTotalCurriculo: null,
+	};
+
+	// Percorre as linhas da tabela lateral de perfil/índices do discente
+	$portal("#perfil-docente tr, table tr").each((_, row) => {
+		const cells = $portal(row).find("td, th");
+		if (cells.length < 2) return;
+
+		const label = cells.eq(0).text().replace(/\s+/g, " ").trim().toLowerCase();
+		const rawValue = cells.eq(1).text().replace(/\s+/g, " ").trim();
+		const numericValue = Number(
+			rawValue.replace(/[^\d.,]/g, "").replace(",", "."),
+		);
+
+		if (!Number.isFinite(numericValue)) return;
+
+		if (
+			label.includes("obrigatória pendente") ||
+			label.includes("obrigatoria pendente")
+		) {
+			result.chObrigatoriaPendente = numericValue;
+		} else if (label.includes("optativa pendente")) {
+			result.chOptativaPendente = numericValue;
+		} else if (label.includes("complementar pendente")) {
+			result.chComplementarPendente = numericValue;
+		} else if (
+			label.includes("total currículo") ||
+			label.includes("total curriculo")
+		) {
+			result.chTotalCurriculo = numericValue;
+		} else if (label.includes("integralizado")) {
+			result.percentualIntegralizado = numericValue;
+		}
+	});
+
+	return result;
+}
+
+async function extractPdfText(pdfBuffer) {
+	// Suporte ao pdf-parse v2+ (exportação nomeada PDFParse)
+	if (typeof pdfParseModule.PDFParse === "function") {
+		const parser = new pdfParseModule.PDFParse({ data: pdfBuffer });
+		try {
+			const result = await parser.getText();
+			return result.text;
+		} finally {
+			if (typeof parser.destroy === "function") {
+				await parser.destroy();
+			}
+		}
+	}
+	// Fallback para pdf-parse v1 (função default)
+	const parseFn = pdfParseModule.default || pdfParseModule;
+	if (typeof parseFn === "function") {
+		const result = await parseFn(pdfBuffer);
+		return result.text;
+	}
+
+	throw new Error("Não foi possível inicializar o parser de PDF.");
+}
+
+export async function parseHistoricoPendentes(pdfBuffer) {
+	const text = await extractPdfText(pdfBuffer);
+
+	const lines = text
+		.split(/\r?\n/)
+		.map((line) => line.replace(/\s+/g, " ").trim())
+		.filter(Boolean);
+
+	const normalize = (value) =>
+		String(value || "")
+			.normalize("NFD")
+			.replace(/[\u0300-\u036f]/g, "")
+			.toLowerCase()
+			.trim();
+
+	const disciplinasPendentes = [];
+	const exigenciasPendentes = [];
+
+	let insidePendentesSection = false;
+	let declaredCount = null;
+
+	for (const line of lines) {
+		const normalized = normalize(line);
+
+		// Identifica a seção de componentes obrigatórios pendentes.
+		if (
+			normalized.includes("componentes curriculares obrigatorios pendentes")
+		) {
+			insidePendentesSection = true;
+
+			const countMatch = line.match(/pendentes\s*:?\s*(\d+)/i);
+
+			if (countMatch) {
+				declaredCount = Number(countMatch[1]);
+			}
+
+			continue;
+		}
+
+		if (!insidePendentesSection) continue;
+
+		// Ignora os rodapés e as quebras entre páginas.
+		if (
+			normalized.startsWith("para verificar a autenticidade") ||
+			/^pagina\s+\d+/.test(normalized) ||
+			normalized.startsWith("-- ")
+		) {
+			continue;
+		}
+
+		// A seção termina depois da lista de pendências.
+		if (normalized.startsWith("atencao, agora o historico possui")) {
+			break;
+		}
+
+		// Ordem observada no PDF:
+		// Disciplina + carga horária + código + status opcional.
+		const rowMatch = line.match(
+			/^(.*?)\s+(\d+(?:[.,]\d+)?)\s*h\s+([A-Z]{2,5}\d{0,4})(?:\s+(Matriculado))?$/i,
+		);
+
+		if (!rowMatch) continue;
+
+		const disciplina = rowMatch[1].trim();
+		const cargaHoraria = Number(rowMatch[2].replace(",", "."));
+		const codigo = rowMatch[3].toUpperCase();
+		const status = rowMatch[4] || null;
+
+		if (!disciplina) continue;
+
+		// ENADE é uma exigência, não uma disciplina.
+		if (codigo === "ENADE") {
+			exigenciasPendentes.push({
+				codigo,
+				descricao: disciplina,
+				cargaHoraria,
+			});
+
+			continue;
+		}
+
+		disciplinasPendentes.push({
+			codigo,
+			disciplina,
+			cargaHoraria,
+			status,
+			matriculada: normalize(status) === "matriculado",
+		});
+	}
+
+	const totalExtraido =
+		disciplinasPendentes.length + exigenciasPendentes.length;
+
+	if (totalExtraido === 0) {
+		throw new Error(
+			"Nenhuma pendência obrigatória foi encontrada no histórico.",
+		);
+	}
+
+	if (declaredCount !== null && declaredCount !== totalExtraido) {
+		throw new Error(
+			`Inconsistência no histórico: SIGAA declarou ${declaredCount} pendências, mas foram extraídos ${totalExtraido}.`,
+		);
+	}
+
+	const totalMatriculadas = disciplinasPendentes.filter(
+		(item) => item.matriculada,
+	).length;
+
+	return {
+		totalObrigatoriasPendentes: declaredCount ?? totalExtraido,
+
+		totalDisciplinasObrigatoriasPendentes: disciplinasPendentes.length,
+
+		totalDisciplinasMatriculadas: totalMatriculadas,
+
+		totalDisciplinasSemMatriculaAtual:
+			disciplinasPendentes.length - totalMatriculadas,
+
+		disciplinasPendentes,
+		exigenciasPendentes,
+	};
+}
 export function formatSigaaScrapedData(scrapedRawData = {}) {
 	// Compatibilidade com o modo de importação manual.
 	const htmlPortal = scrapedRawData.htmlPortal || scrapedRawData.html || "";

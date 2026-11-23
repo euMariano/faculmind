@@ -5,6 +5,7 @@ import { CookieJar } from "tough-cookie";
 
 import {
 	formatSigaaScrapedData,
+	parseHistoricoPendentes,
 	parseSigaaNotesReport,
 } from "./sigaaParser.js";
 
@@ -346,7 +347,129 @@ async function scrapeNotesForTurma(session, turma, matricula) {
 	};
 }
 
-export async function syncWithSigaa(username, password) {
+async function fetchHistoricoPdfBuffer(session, htmlPortal) {
+	const $portal = cheerio.load(htmlPortal);
+
+	const $menuForm = $portal('form[id$="form_menu_discente"]').first();
+
+	if (!$menuForm.length) {
+		throw new Error("Formulário do menu do discente não encontrado.");
+	}
+
+	// Confirma que o item Emitir Histórico existe no menu.
+	// const $historyItem = $portal(".ThemeOfficeMenuItemText")
+	// 	.filter((_, element) => {
+	// 		return (
+	// 			normalizeSigaaLabel($portal(element).text()) === "emitir historico"
+	// 		);
+	// 	})
+	// 	.first();
+	//
+	// if (!$historyItem.length) {
+	// 	throw new Error("Item Emitir Histórico não encontrado no menu.");
+	// }
+
+	const action = $menuForm.attr("action");
+
+	if (!action) {
+		throw new Error("Action do menu do discente não encontrada.");
+	}
+
+	const payload = new URLSearchParams();
+
+	// Reproduz os campos enviados pelo navegador.
+	$menuForm
+		.find("input[name], select[name], textarea[name]")
+		.each((_, element) => {
+			const $field = $portal(element);
+			const name = $field.attr("name");
+
+			if (!name || name === "jscook_action") {
+				return;
+			}
+
+			const type = ($field.attr("type") || "").toLowerCase();
+
+			if (["submit", "button", "reset", "image", "file"].includes(type)) {
+				return;
+			}
+
+			if (["checkbox", "radio"].includes(type) && !$field.attr("checked")) {
+				return;
+			}
+
+			const value = $field.val();
+
+			if (value !== undefined && value !== null) {
+				payload.append(name, String(value));
+			}
+		});
+
+	// Ação observada na requisição real do navegador.
+	payload.set(
+		"jscook_action",
+		"menu_form_menu_discente_discente_menu:A]#{ portalDiscente.historico }",
+	);
+
+	// Evita enviar uma requisição incompleta.
+	const requiredFields = [
+		"menu:form_menu_discente",
+		"id",
+		"javax.faces.ViewState",
+		"jscook_action",
+	];
+
+	for (const field of requiredFields) {
+		if (!payload.has(field)) {
+			throw new Error(
+				`Campo obrigatório ausente na requisição do histórico: ${field}`,
+			);
+		}
+	}
+
+	console.log("[SIGAA PDF] Campos da requisição:", {
+		formId: $menuForm.attr("id"),
+		action,
+		fields: [...payload.keys()],
+		viewState: payload.has("javax.faces.ViewState"),
+		jscookAction: payload.get("jscook_action"),
+	});
+
+	const targetUrl = new URL(action, SIGAA_BASE_URL).toString();
+
+	const referer = `${SIGAA_BASE_URL}/sigaa/portais/discente/discente.jsf`;
+
+	console.log("[SIGAA PDF] Solicitando histórico escolar...");
+
+	const pdfResponse = await session.post(targetUrl, payload.toString(), {
+		responseType: "arraybuffer",
+		headers: {
+			"Content-Type": "application/x-www-form-urlencoded",
+			Referer: referer,
+			Origin: SIGAA_BASE_URL,
+		},
+	});
+
+	const contentType = String(
+		pdfResponse.headers["content-type"] || "",
+	).toLowerCase();
+
+	if (!contentType.includes("application/pdf")) {
+		throw new Error(
+			`SIGAA não retornou um PDF (Content-Type: ${contentType}).`,
+		);
+	}
+
+	const buffer = Buffer.from(pdfResponse.data);
+
+	console.log("[SIGAA PDF] Histórico recebido:", {
+		bytes: buffer.length,
+		contentType,
+	});
+
+	return buffer;
+}
+export async function syncWithSigaa(username, password, options = {}) {
 	const session = createSigaaSession();
 
 	try {
@@ -422,7 +545,28 @@ export async function syncWithSigaa(username, password) {
 		);
 
 		const htmlPortal = portalResponse.data;
+		const historicoBuffer = await fetchHistoricoPdfBuffer(session, htmlPortal);
+		// Modo de teste: interrompe após receber o PDF.
+		// Não executa o parser, a consulta de notas ou a persistência.
+		if (options.onlyHistorico) {
+			return {
+				success: true,
+				testOnly: true,
+				historicoBuffer,
+			};
+		}
 
+		const pendentes = await parseHistoricoPendentes(historicoBuffer);
+
+		console.log("[SIGAA INTEGRALIZAÇÃO] Histórico processado:", {
+			total: pendentes.totalObrigatoriasPendentes,
+			disciplinas: pendentes.totalDisciplinasObrigatoriasPendentes,
+			matriculadas: pendentes.totalDisciplinasMatriculadas,
+			semMatricula: pendentes.totalDisciplinasSemMatriculaAtual,
+			exigencias: pendentes.exigenciasPendentes.length,
+		});
+
+		// parsedData.integralizacao = pendentes;
 		console.log("[SIGAA HTTP Scraper] Acessando histórico de turmas...");
 
 		// 4. Obtém a página de turmas.
@@ -443,6 +587,7 @@ export async function syncWithSigaa(username, password) {
 			htmlTurmas,
 			username,
 		});
+		parsedData.integralizacao = pendentes;
 
 		// Sincroniza as notas de todas as disciplinas do semestre atual.
 		const currentTurmas = parsedData.turmas.filter(
