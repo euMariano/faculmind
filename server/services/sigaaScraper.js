@@ -794,6 +794,20 @@ async function fetchHistoricoPdfBuffer(session, htmlPortal) {
 
 	return buffer;
 }
+
+export function getHistoryTtlMs() {
+	const envHours = Number(process.env.SIGAA_HISTORY_TTL_HOURS);
+	if (Number.isFinite(envHours) && envHours > 0) {
+		return envHours * 60 * 60 * 1000;
+	}
+	if (process.env.SIGAA_HISTORY_TTL_HOURS !== undefined) {
+		console.warn(
+			`[SIGAA TTL] SIGAA_HISTORY_TTL_HOURS inválido ("${process.env.SIGAA_HISTORY_TTL_HOURS}"). Usando fallback de 24 horas.`,
+		);
+	}
+	return 24 * 60 * 60 * 1000;
+}
+
 export async function syncWithSigaa(username, password, options = {}) {
 	const session = createSigaaSession();
 
@@ -870,10 +884,14 @@ export async function syncWithSigaa(username, password, options = {}) {
 		);
 
 		const htmlPortal = portalResponse.data;
-		const historicoBuffer = await fetchHistoricoPdfBuffer(session, htmlPortal);
+
 		// Modo de teste: interrompe após receber o PDF.
 		// Não executa o parser, a consulta de notas ou a persistência.
 		if (options.onlyHistorico) {
+			const historicoBuffer = await fetchHistoricoPdfBuffer(
+				session,
+				htmlPortal,
+			);
 			return {
 				success: true,
 				testOnly: true,
@@ -881,17 +899,6 @@ export async function syncWithSigaa(username, password, options = {}) {
 			};
 		}
 
-		const pendentes = await parseHistoricoPendentes(historicoBuffer);
-
-		console.log("[SIGAA INTEGRALIZAÇÃO] Histórico processado:", {
-			total: pendentes.totalObrigatoriasPendentes,
-			disciplinas: pendentes.totalDisciplinasObrigatoriasPendentes,
-			matriculadas: pendentes.totalDisciplinasMatriculadas,
-			semMatricula: pendentes.totalDisciplinasSemMatriculaAtual,
-			exigencias: pendentes.exigenciasPendentes.length,
-		});
-
-		// parsedData.integralizacao = pendentes;
 		console.log("[SIGAA HTTP Scraper] Acessando histórico de turmas...");
 
 		// 4. Obtém a página de turmas.
@@ -906,13 +913,126 @@ export async function syncWithSigaa(username, password, options = {}) {
 			"[SIGAA HTTP Scraper] Extraindo e combinando dados acadêmicos...",
 		);
 
-		// 5. Combina os dados extraídos das duas páginas.
+		// 5. Combina os dados extraídos das duas páginas para identificar semestre e turmas.
 		const parsedData = formatSigaaScrapedData({
 			htmlPortal,
 			htmlTurmas,
 			username,
 		});
-		parsedData.integralizacao = pendentes;
+
+		const syncReport = {
+			turmas: {},
+			history: null,
+		};
+		const warnings = [];
+
+		// 6. Decisão de reaproveitamento ou atualização do histórico
+		const forceHistory = options.forceHistory === true;
+		const existingHistory = options.existingRecord?.integralizacao || null;
+		const existingMeta = options.existingRecord?.syncMetadata?.history || null;
+		const currentSemester = parsedData.currentSemester;
+		const now = new Date();
+		const ttlMs = getHistoryTtlMs();
+
+		const hasValidExistingHistory = Boolean(
+			existingHistory &&
+				(Array.isArray(existingHistory.disciplinasPendentes) ||
+					existingHistory.totalObrigatoriasPendentes !== undefined),
+		);
+		const hasValidMeta = Boolean(
+			existingMeta &&
+				existingMeta.lastSuccessfulAt &&
+				existingMeta.semester,
+		);
+		const sameSemester = existingMeta?.semester === currentSemester;
+		const withinTtl =
+			hasValidMeta &&
+			now.getTime() - new Date(existingMeta.lastSuccessfulAt).getTime() <
+				ttlMs;
+
+		const canReuse =
+			!forceHistory && hasValidExistingHistory && sameSemester && withinTtl;
+
+		if (canReuse) {
+			console.log(
+				"[SIGAA INTEGRALIZAÇÃO] Reutilizando integralização existente dentro do TTL...",
+			);
+			parsedData.integralizacao = existingHistory;
+			parsedData.syncMetadata = {
+				...(options.existingRecord?.syncMetadata || {}),
+				history: {
+					lastSuccessfulAt: existingMeta.lastSuccessfulAt,
+					semester: existingMeta.semester,
+					lastAttemptAt: now.toISOString(),
+					lastAttemptStatus: "reused",
+				},
+			};
+			syncReport.history = "reused";
+		} else {
+			try {
+				console.log(
+					"[SIGAA INTEGRALIZAÇÃO] Baixando e processando histórico escolar...",
+				);
+				const historicoBuffer = await fetchHistoricoPdfBuffer(
+					session,
+					htmlPortal,
+				);
+				const pendentes = await parseHistoricoPendentes(historicoBuffer);
+
+				console.log("[SIGAA INTEGRALIZAÇÃO] Histórico processado:", {
+					total: pendentes.totalObrigatoriasPendentes,
+					disciplinas: pendentes.totalDisciplinasObrigatoriasPendentes,
+					matriculadas: pendentes.totalDisciplinasMatriculadas,
+					semMatricula: pendentes.totalDisciplinasSemMatriculaAtual,
+					exigencias: pendentes.exigenciasPendentes.length,
+				});
+
+				parsedData.integralizacao = pendentes;
+				parsedData.syncMetadata = {
+					...(options.existingRecord?.syncMetadata || {}),
+					history: {
+						lastSuccessfulAt: now.toISOString(),
+						semester: currentSemester,
+						lastAttemptAt: now.toISOString(),
+						lastAttemptStatus: "success",
+					},
+				};
+				syncReport.history = "available";
+			} catch (histError) {
+				console.error(
+					"[SIGAA INTEGRALIZAÇÃO] Falha ao atualizar histórico:",
+					histError.message,
+				);
+				syncReport.history = "failed";
+				syncReport.historyError = histError.message;
+				warnings.push(`Falha no histórico escolar: ${histError.message}`);
+
+				if (hasValidExistingHistory) {
+					parsedData.integralizacao = existingHistory;
+					parsedData.syncMetadata = {
+						...(options.existingRecord?.syncMetadata || {}),
+						history: {
+							lastSuccessfulAt: existingMeta?.lastSuccessfulAt || null,
+							semester: existingMeta?.semester || currentSemester,
+							lastAttemptAt: now.toISOString(),
+							lastAttemptStatus: "failed",
+							...(sameSemester ? {} : { stale: true }),
+						},
+					};
+				} else {
+					parsedData.integralizacao = null;
+					parsedData.syncMetadata = {
+						...(options.existingRecord?.syncMetadata || {}),
+						history: {
+							lastSuccessfulAt: null,
+							semester: currentSemester,
+							lastAttemptAt: now.toISOString(),
+							lastAttemptStatus: "failed",
+						},
+					};
+				}
+			}
+		}
 
 		// Sincroniza notas e frequência de todas as disciplinas do semestre atual.
 		const currentTurmas = parsedData.turmas.filter(
@@ -947,6 +1067,10 @@ export async function syncWithSigaa(username, password, options = {}) {
 
 		for (const turma of currentTurmas) {
 			const courseCode = turma.codigo || "Código desconhecido";
+			const courseName = turma.disciplina || "Disciplina";
+			const turmaKey =
+				turma.id ||
+				`${turma.periodo}-${turma.codigo}-${turma.turmaId || "sem-turma"}`;
 
 			try {
 				console.log(
@@ -958,6 +1082,11 @@ export async function syncWithSigaa(username, password, options = {}) {
 					turma,
 					parsedData.matricula,
 				);
+
+				syncReport.turmas[turmaKey] = {
+					notas: academicData.notas.status,
+					frequencia: academicData.frequencia.status,
+				};
 
 				// Processamento de Notas
 				if (academicData.notas.status === "available") {
@@ -1008,6 +1137,9 @@ export async function syncWithSigaa(username, password, options = {}) {
 							academicData.notas.error ||
 							"Falha técnica na extração de notas",
 					});
+					warnings.push(
+						`Falha ao extrair notas de ${courseCode}: ${academicData.notas.error || "Erro técnico"}`,
+					);
 				}
 
 				// Processamento de Frequência
@@ -1026,6 +1158,11 @@ export async function syncWithSigaa(username, password, options = {}) {
 						turma.presencaPercentual = percentual;
 					}
 
+					// Mapa de frequência é a fonte primária e mais detalhada de faltas
+					if (extractedFrequency.contagem?.totalFaltas !== undefined) {
+						turma.faltas = extractedFrequency.contagem.totalFaltas;
+					}
+
 					frequencySummary.updated++;
 
 					console.log("[SIGAA FREQUÊNCIA] Disciplina atualizada:", {
@@ -1034,11 +1171,14 @@ export async function syncWithSigaa(username, password, options = {}) {
 						presentes: extractedFrequency.contagem?.presentes,
 						ausentes: extractedFrequency.contagem?.ausentes,
 						naoRegistradas: extractedFrequency.contagem?.naoRegistradas,
+						totalFaltas: extractedFrequency.contagem?.totalFaltas,
 						percentual: percentual,
+						faltasTurma: turma.faltas,
 					});
 				} else if (academicData.frequencia.status === "not_launched") {
 					turma.frequenciaDisponivel = false;
 					turma.frequencia = null;
+					turma.faltas = null;
 					frequencySummary.notLaunched++;
 					console.log(
 						`[SIGAA FREQUÊNCIA] ${courseCode}: frequência ainda não lançada.`,
@@ -1050,8 +1190,16 @@ export async function syncWithSigaa(username, password, options = {}) {
 							academicData.frequencia.error ||
 							"Falha técnica na extração de frequência",
 					});
+					warnings.push(
+						`Falha ao extrair frequência de ${courseCode}: ${academicData.frequencia.error || "Erro técnico"}`,
+					);
 				}
 			} catch (error) {
+				syncReport.turmas[turmaKey] = {
+					notas: "failed",
+					frequencia: "failed",
+				};
+
 				notesSummary.failed.push({
 					codigo: courseCode,
 					error: error.message,
@@ -1061,6 +1209,10 @@ export async function syncWithSigaa(username, password, options = {}) {
 					codigo: courseCode,
 					error: error.message,
 				});
+
+				warnings.push(
+					`Falha geral na turma ${courseCode}: ${error.message}`,
+				);
 
 				console.error(
 					`[SIGAA ACADÊMICO] Falha geral em ${courseCode}:`,
@@ -1079,10 +1231,21 @@ export async function syncWithSigaa(username, password, options = {}) {
 			`[SIGAA HTTP Scraper] Extração concluída. Turmas encontradas: ${parsedData.turmas.length}`,
 		);
 
+		const isPartial =
+			syncReport.history === "failed" ||
+			Object.values(syncReport.turmas).some(
+				(t) => t.notas === "failed" || t.frequencia === "failed",
+			);
+
 		return {
 			success: true,
-			message: "Dados extraídos via HTTP.",
+			partial: isPartial,
+			message: isPartial
+				? "Sincronização parcial com avisos técnicos."
+				: "Dados extraídos via HTTP.",
 			student: parsedData,
+			syncReport,
+			warnings,
 		};
 	} catch (error) {
 		console.error("[SIGAA HTTP Scraper] Erro:", error.message);

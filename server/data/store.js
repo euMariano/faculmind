@@ -832,6 +832,254 @@ class DataStore {
 			throw error;
 		}
 	}
+
+	async mergeAndSaveStudentAcademicRecord(uid, incomingRecord, syncReport = {}) {
+		if (!uid) {
+			console.error("[Store] Tentativa de mesclar histórico sem UID.");
+			return null;
+		}
+
+		try {
+			const mergedRecord = await db.runTransaction(async (transaction) => {
+				const docRef = db.collection("students").doc(uid);
+				const docSnap = await transaction.get(docRef);
+				const existingRecord = docSnap.exists ? docSnap.data() : null;
+
+				const merged = mergeAcademicRecords(
+					existingRecord,
+					incomingRecord,
+					syncReport,
+				);
+
+				transaction.set(docRef, merged, { merge: false });
+				return merged;
+			});
+
+			return mergedRecord;
+		} catch (error) {
+			console.error(`[Store] Erro Firestore TRANSACTION UID ${uid}:`, error);
+			throw error;
+		}
+	}
+}
+
+export function getTurmaCompositeKey(turma) {
+	if (!turma) return "";
+	if (turma.id) return turma.id;
+	const periodo = turma.periodo
+		? String(turma.periodo).replace(/\s+/g, "-")
+		: "sem-periodo";
+	const codigo = turma.codigo || "sem-codigo";
+	const turmaId = turma.turmaId || "sem-turma";
+	return `${periodo}-${codigo}-${turmaId}`;
+}
+
+export function mergeAcademicRecords(
+	existingRecord,
+	incomingRecord,
+	syncReport = {},
+) {
+	if (!incomingRecord) {
+		return existingRecord || null;
+	}
+	if (!existingRecord) {
+		return incomingRecord;
+	}
+
+	const isManualImport = Boolean(syncReport.isManualImport);
+	const turmasReport = syncReport.turmas || {};
+
+	// 1. DADOS GERAIS DO ESTUDANTE
+	const mergedName =
+		typeof incomingRecord.name === "string" && incomingRecord.name.trim()
+			? incomingRecord.name.trim()
+			: existingRecord.name || null;
+
+	const mergedMatricula =
+		typeof incomingRecord.matricula === "string" &&
+		incomingRecord.matricula.trim()
+			? incomingRecord.matricula.trim()
+			: existingRecord.matricula || null;
+
+	const mergedCourse =
+		typeof incomingRecord.course === "string" && incomingRecord.course.trim()
+			? incomingRecord.course.trim()
+			: existingRecord.course || null;
+
+	const mergedCr =
+		incomingRecord.cr !== null &&
+		incomingRecord.cr !== undefined &&
+		incomingRecord.cr !== ""
+			? incomingRecord.cr
+			: (existingRecord.cr ?? null);
+
+	const mergedSemester =
+		typeof incomingRecord.currentSemester === "string" &&
+		incomingRecord.currentSemester.trim()
+			? incomingRecord.currentSemester.trim()
+			: existingRecord.currentSemester || null;
+
+	// 2. TURMAS ATUAIS
+	const existingTurmasMap = new Map();
+	if (Array.isArray(existingRecord.turmas)) {
+		for (const t of existingRecord.turmas) {
+			const key = getTurmaCompositeKey(t);
+			if (key) {
+				existingTurmasMap.set(key, t);
+			}
+		}
+	}
+
+	const incomingTurmas = Array.isArray(incomingRecord.turmas)
+		? incomingRecord.turmas
+		: [];
+
+	let mergedTurmas;
+	if (incomingTurmas.length === 0 && existingRecord.turmas?.length > 0) {
+		// Preserva turmas anteriores se incoming falhou estruturalmente ou veio sem turmas
+		mergedTurmas = existingRecord.turmas;
+	} else {
+		mergedTurmas = incomingTurmas.map((incTurma) => {
+			const key = getTurmaCompositeKey(incTurma);
+			const extTurma = existingTurmasMap.get(key) || null;
+
+			if (!extTurma) {
+				return incTurma;
+			}
+
+			const turmaState = turmasReport[key] || turmasReport[incTurma.id] || {};
+			const notasStatus = turmaState.notas;
+			const frequenciaStatus = turmaState.frequencia;
+
+			const mergedTurma = { ...incTurma };
+
+			// Atributos gerais da turma
+			if (!mergedTurma.local && extTurma.local)
+				mergedTurma.local = extTurma.local;
+			if (!mergedTurma.horario && extTurma.horario)
+				mergedTurma.horario = extTurma.horario;
+			if (!mergedTurma.cargaHoraria && extTurma.cargaHoraria)
+				mergedTurma.cargaHoraria = extTurma.cargaHoraria;
+			if (!mergedTurma.docente && extTurma.docente)
+				mergedTurma.docente = extTurma.docente;
+			if (!mergedTurma.status && extTurma.status)
+				mergedTurma.status = extTurma.status;
+
+			// NOTAS
+			if (notasStatus === "available") {
+				mergedTurma.notasDisponiveis = true;
+				// mergedTurma.notas já contém incoming notas
+			} else if (notasStatus === "not_launched") {
+				mergedTurma.notasDisponiveis = false;
+				mergedTurma.notas = incTurma.notas || {
+					unidade1: null,
+					unidade2: null,
+					mediaParcial: null,
+				};
+			} else if (notasStatus === "failed") {
+				mergedTurma.notasDisponiveis = extTurma.notasDisponiveis ?? null;
+				mergedTurma.notas = extTurma.notas ?? null;
+			} else {
+				// Categoria não informada (ex: importação manual)
+				if (isManualImport || notasStatus === undefined) {
+					if (
+						extTurma.notasDisponiveis !== undefined &&
+						extTurma.notasDisponiveis !== null
+					) {
+						mergedTurma.notasDisponiveis = extTurma.notasDisponiveis;
+						mergedTurma.notas = extTurma.notas;
+					}
+				}
+			}
+
+			// FREQUÊNCIA
+			if (frequenciaStatus === "available") {
+				mergedTurma.frequenciaDisponivel = true;
+				if (incTurma.frequencia?.contagem?.totalFaltas !== undefined) {
+					mergedTurma.faltas = incTurma.frequencia.contagem.totalFaltas;
+				}
+				if (
+					incTurma.presencaPercentual !== null &&
+					incTurma.presencaPercentual !== undefined
+				) {
+					mergedTurma.presencaPercentual = incTurma.presencaPercentual;
+				} else if (
+					extTurma.presencaPercentual !== null &&
+					extTurma.presencaPercentual !== undefined
+				) {
+					mergedTurma.presencaPercentual = extTurma.presencaPercentual;
+				}
+			} else if (frequenciaStatus === "not_launched") {
+				mergedTurma.frequenciaDisponivel = false;
+				mergedTurma.frequencia = null;
+				mergedTurma.faltas = null;
+			} else if (frequenciaStatus === "failed") {
+				mergedTurma.frequenciaDisponivel =
+					extTurma.frequenciaDisponivel ?? null;
+				mergedTurma.frequencia = extTurma.frequencia ?? null;
+				mergedTurma.presencaPercentual = extTurma.presencaPercentual ?? null;
+				mergedTurma.faltas = extTurma.faltas ?? null;
+			} else {
+				// Categoria não informada (ex: importação manual)
+				if (isManualImport || frequenciaStatus === undefined) {
+					if (
+						extTurma.frequenciaDisponivel !== undefined &&
+						extTurma.frequenciaDisponivel !== null
+					) {
+						mergedTurma.frequenciaDisponivel = extTurma.frequenciaDisponivel;
+						mergedTurma.frequencia = extTurma.frequencia;
+						mergedTurma.presencaPercentual = extTurma.presencaPercentual;
+						mergedTurma.faltas = extTurma.faltas;
+					}
+				}
+			}
+
+			return mergedTurma;
+		});
+	}
+
+	// 3. INTEGRALIZAÇÃO
+	let mergedIntegralizacao;
+	const historyStatus = syncReport.history;
+
+	if (isManualImport) {
+		mergedIntegralizacao =
+			existingRecord.integralizacao ||
+			incomingRecord.integralizacao ||
+			null;
+	} else if (historyStatus === "failed") {
+		mergedIntegralizacao = existingRecord.integralizacao || null;
+	} else if (incomingRecord.integralizacao) {
+		mergedIntegralizacao = incomingRecord.integralizacao;
+	} else {
+		mergedIntegralizacao = existingRecord.integralizacao || null;
+	}
+
+	// 4. METADADOS DE SINCRONIZAÇÃO (syncMetadata)
+	const mergedSyncMetadata = {
+		...(existingRecord.syncMetadata || {}),
+		...(incomingRecord.syncMetadata || {}),
+	};
+	if (
+		existingRecord.syncMetadata?.history &&
+		(!incomingRecord.syncMetadata || !incomingRecord.syncMetadata.history)
+	) {
+		mergedSyncMetadata.history = existingRecord.syncMetadata.history;
+	}
+
+	return {
+		...existingRecord,
+		...incomingRecord,
+		name: mergedName,
+		matricula: mergedMatricula,
+		course: mergedCourse,
+		cr: mergedCr,
+		currentSemester: mergedSemester,
+		turmas: mergedTurmas,
+		integralizacao: mergedIntegralizacao,
+		syncMetadata: mergedSyncMetadata,
+		lastSyncAt: new Date().toISOString(),
+	};
 }
 
 export const dataStore = new DataStore();

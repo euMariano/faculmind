@@ -599,6 +599,7 @@ export function parseSigaaFrequencyReport(html) {
 		ausentes: 0,
 		naoRegistradas: 0,
 		outros: 0,
+		totalFaltas: 0,
 	};
 
 	$table.find("tbody tr").each((_, row) => {
@@ -614,25 +615,44 @@ export function parseSigaaFrequencyReport(html) {
 		const normalizedStatus = normalize(situacao);
 
 		let categoria = "outro";
+		let quantidadeFaltas;
+
+		const faltaRegexMatch = normalizedStatus.match(
+			/^(\d+)\s*falta(?:\(s\)|s)?$/,
+		);
 
 		if (normalizedStatus === "presente") {
 			categoria = "presente";
 			contagem.presentes++;
+		} else if (faltaRegexMatch) {
+			categoria = "ausente";
+			quantidadeFaltas = parseInt(faltaRegexMatch[1], 10);
+			contagem.ausentes++;
+			contagem.totalFaltas += quantidadeFaltas;
 		} else if (["ausente", "falta", "faltou"].includes(normalizedStatus)) {
 			categoria = "ausente";
+			quantidadeFaltas = 1;
 			contagem.ausentes++;
+			contagem.totalFaltas += 1;
 		} else if (["nao registrada", "nao lancada"].includes(normalizedStatus)) {
 			categoria = "nao_registrada";
 			contagem.naoRegistradas++;
 		} else {
+			categoria = "outro";
 			contagem.outros++;
 		}
 
-		registros.push({
+		const registro = {
 			data,
 			situacao,
 			categoria,
-		});
+		};
+
+		if (quantidadeFaltas !== undefined) {
+			registro.quantidadeFaltas = quantidadeFaltas;
+		}
+
+		registros.push(registro);
 	});
 
 	// ---------------------------------------------------------

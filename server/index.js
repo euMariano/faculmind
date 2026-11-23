@@ -139,18 +139,40 @@ app.post("/api/chat", authenticateToken, async (req, res) => {
 // -------------------------------------------------------------
 app.post("/api/sync-university", authenticateToken, async (req, res) => {
 	try {
-		const { username, password } = req.body;
+		const { username, password, forceHistory } = req.body;
 		if (!username || !password) {
 			return res
 				.status(400)
 				.json({ success: false, error: "Usuário e senha são obrigatórios." });
 		}
 
-		const result = await syncWithSigaa(username, password);
+		// 1. Obtém registro anterior estritamente via req.uid para avaliar TTL do histórico
+		const existingRecord = await dataStore.getStudentAcademicRecord(req.uid);
+
+		// 2. forceHistory exige valor booleano estrito true
+		const isForceHistory = forceHistory === true;
+
+		// 3. Executa sincronização com opções de histórico
+		const result = await syncWithSigaa(username, password, {
+			existingRecord,
+			forceHistory: isForceHistory,
+		});
+
 		if (result.success && result.student) {
-			await dataStore.saveStudentAcademicRecord(req.uid, result.student); // AGUARDA O FIRESTORE
+			// 4. Mesclagem resiliente e gravação atômica via transação
+			const mergedStudent = await dataStore.mergeAndSaveStudentAcademicRecord(
+				req.uid,
+				result.student,
+				result.syncReport,
+			);
 			invalidateUserCache(req.uid);
+
+			return res.json({
+				...result,
+				student: mergedStudent,
+			});
 		}
+
 		res.json(result);
 	} catch (err) {
 		console.error("Error syncing university data:", err);
@@ -197,14 +219,19 @@ app.post("/api/sync-university/import", authenticateToken, async (req, res) => {
 			});
 		}
 
-		await dataStore.saveStudentAcademicRecord(req.uid, parsedStudent); // AGUARDA O FIRESTORE
+		// Gravação com mesclagem: não apaga notas, frequência ou integralização prévias
+		const mergedStudent = await dataStore.mergeAndSaveStudentAcademicRecord(
+			req.uid,
+			parsedStudent,
+			{ isManualImport: true, turmas: {} },
+		);
 		invalidateUserCache(req.uid);
 
 		console.log(`[SIGAA Import] Sincronização concluída. [UID: ${req.uid}]`);
 		res.json({
 			success: true,
 			message: "Dados sincronizados.",
-			student: parsedStudent,
+			student: mergedStudent,
 		});
 	} catch (err) {
 		console.error("Error importing SIGAA data:", err);

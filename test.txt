@@ -1,0 +1,687 @@
+diff --git a/server/data/store.js b/server/data/store.js
+index 24cdb125..290e3f70 100644
+--- a/server/data/store.js
++++ b/server/data/store.js
+@@ -832,6 +832,254 @@ class DataStore {
+ 			throw error;
+ 		}
+ 	}
++
++	async mergeAndSaveStudentAcademicRecord(uid, incomingRecord, syncReport = {}) {
++		if (!uid) {
++			console.error("[Store] Tentativa de mesclar histórico sem UID.");
++			return null;
++		}
++
++		try {
++			const mergedRecord = await db.runTransaction(async (transaction) => {
++				const docRef = db.collection("students").doc(uid);
++				const docSnap = await transaction.get(docRef);
++				const existingRecord = docSnap.exists ? docSnap.data() : null;
++
++				const merged = mergeAcademicRecords(
++					existingRecord,
++					incomingRecord,
++					syncReport,
++				);
++
++				transaction.set(docRef, merged, { merge: false });
++				return merged;
++			});
++
++			return mergedRecord;
++		} catch (error) {
++			console.error(`[Store] Erro Firestore TRANSACTION UID ${uid}:`, error);
++			throw error;
++		}
++	}
++}
++
++export function getTurmaCompositeKey(turma) {
++	if (!turma) return "";
++	if (turma.id) return turma.id;
++	const periodo = turma.periodo
++		? String(turma.periodo).replace(/\s+/g, "-")
++		: "sem-periodo";
++	const codigo = turma.codigo || "sem-codigo";
++	const turmaId = turma.turmaId || "sem-turma";
++	return `${periodo}-${codigo}-${turmaId}`;
++}
++
++export function mergeAcademicRecords(
++	existingRecord,
++	incomingRecord,
++	syncReport = {},
++) {
++	if (!incomingRecord) {
++		return existingRecord || null;
++	}
++	if (!existingRecord) {
++		return incomingRecord;
++	}
++
++	const isManualImport = Boolean(syncReport.isManualImport);
++	const turmasReport = syncReport.turmas || {};
++
++	// 1. DADOS GERAIS DO ESTUDANTE
++	const mergedName =
++		typeof incomingRecord.name === "string" && incomingRecord.name.trim()
++			? incomingRecord.name.trim()
++			: existingRecord.name || null;
++
++	const mergedMatricula =
++		typeof incomingRecord.matricula === "string" &&
++		incomingRecord.matricula.trim()
++			? incomingRecord.matricula.trim()
++			: existingRecord.matricula || null;
++
++	const mergedCourse =
++		typeof incomingRecord.course === "string" && incomingRecord.course.trim()
++			? incomingRecord.course.trim()
++			: existingRecord.course || null;
++
++	const mergedCr =
++		incomingRecord.cr !== null &&
++		incomingRecord.cr !== undefined &&
++		incomingRecord.cr !== ""
++			? incomingRecord.cr
++			: (existingRecord.cr ?? null);
++
++	const mergedSemester =
++		typeof incomingRecord.currentSemester === "string" &&
++		incomingRecord.currentSemester.trim()
++			? incomingRecord.currentSemester.trim()
++			: existingRecord.currentSemester || null;
++
++	// 2. TURMAS ATUAIS
++	const existingTurmasMap = new Map();
++	if (Array.isArray(existingRecord.turmas)) {
++		for (const t of existingRecord.turmas) {
++			const key = getTurmaCompositeKey(t);
++			if (key) {
++				existingTurmasMap.set(key, t);
++			}
++		}
++	}
++
++	const incomingTurmas = Array.isArray(incomingRecord.turmas)
++		? incomingRecord.turmas
++		: [];
++
++	let mergedTurmas;
++	if (incomingTurmas.length === 0 && existingRecord.turmas?.length > 0) {
++		// Preserva turmas anteriores se incoming falhou estruturalmente ou veio sem turmas
++		mergedTurmas = existingRecord.turmas;
++	} else {
++		mergedTurmas = incomingTurmas.map((incTurma) => {
++			const key = getTurmaCompositeKey(incTurma);
++			const extTurma = existingTurmasMap.get(key) || null;
++
++			if (!extTurma) {
++				return incTurma;
++			}
++
++			const turmaState = turmasReport[key] || turmasReport[incTurma.id] || {};
++			const notasStatus = turmaState.notas;
++			const frequenciaStatus = turmaState.frequencia;
++
++			const mergedTurma = { ...incTurma };
++
++			// Atributos gerais da turma
++			if (!mergedTurma.local && extTurma.local)
++				mergedTurma.local = extTurma.local;
++			if (!mergedTurma.horario && extTurma.horario)
++				mergedTurma.horario = extTurma.horario;
++			if (!mergedTurma.cargaHoraria && extTurma.cargaHoraria)
++				mergedTurma.cargaHoraria = extTurma.cargaHoraria;
++			if (!mergedTurma.docente && extTurma.docente)
++				mergedTurma.docente = extTurma.docente;
++			if (!mergedTurma.status && extTurma.status)
++				mergedTurma.status = extTurma.status;
++
++			// NOTAS
++			if (notasStatus === "available") {
++				mergedTurma.notasDisponiveis = true;
++				// mergedTurma.notas já contém incoming notas
++			} else if (notasStatus === "not_launched") {
++				mergedTurma.notasDisponiveis = false;
++				mergedTurma.notas = incTurma.notas || {
++					unidade1: null,
++					unidade2: null,
++					mediaParcial: null,
++				};
++			} else if (notasStatus === "failed") {
++				mergedTurma.notasDisponiveis = extTurma.notasDisponiveis ?? null;
++				mergedTurma.notas = extTurma.notas ?? null;
++			} else {
++				// Categoria não informada (ex: importação manual)
++				if (isManualImport || notasStatus === undefined) {
++					if (
++						extTurma.notasDisponiveis !== undefined &&
++						extTurma.notasDisponiveis !== null
++					) {
++						mergedTurma.notasDisponiveis = extTurma.notasDisponiveis;
++						mergedTurma.notas = extTurma.notas;
++					}
++				}
++			}
++
++			// FREQUÊNCIA
++			if (frequenciaStatus === "available") {
++				mergedTurma.frequenciaDisponivel = true;
++				if (incTurma.frequencia?.contagem?.totalFaltas !== undefined) {
++					mergedTurma.faltas = incTurma.frequencia.contagem.totalFaltas;
++				}
++				if (
++					incTurma.presencaPercentual !== null &&
++					incTurma.presencaPercentual !== undefined
++				) {
++					mergedTurma.presencaPercentual = incTurma.presencaPercentual;
++				} else if (
++					extTurma.presencaPercentual !== null &&
++					extTurma.presencaPercentual !== undefined
++				) {
++					mergedTurma.presencaPercentual = extTurma.presencaPercentual;
++				}
++			} else if (frequenciaStatus === "not_launched") {
++				mergedTurma.frequenciaDisponivel = false;
++				mergedTurma.frequencia = null;
++				mergedTurma.faltas = null;
++			} else if (frequenciaStatus === "failed") {
++				mergedTurma.frequenciaDisponivel =
++					extTurma.frequenciaDisponivel ?? null;
++				mergedTurma.frequencia = extTurma.frequencia ?? null;
++				mergedTurma.presencaPercentual = extTurma.presencaPercentual ?? null;
++				mergedTurma.faltas = extTurma.faltas ?? null;
++			} else {
++				// Categoria não informada (ex: importação manual)
++				if (isManualImport || frequenciaStatus === undefined) {
++					if (
++						extTurma.frequenciaDisponivel !== undefined &&
++						extTurma.frequenciaDisponivel !== null
++					) {
++						mergedTurma.frequenciaDisponivel = extTurma.frequenciaDisponivel;
++						mergedTurma.frequencia = extTurma.frequencia;
++						mergedTurma.presencaPercentual = extTurma.presencaPercentual;
++						mergedTurma.faltas = extTurma.faltas;
++					}
++				}
++			}
++
++			return mergedTurma;
++		});
++	}
++
++	// 3. INTEGRALIZAÇÃO
++	let mergedIntegralizacao;
++	const historyStatus = syncReport.history;
++
++	if (isManualImport) {
++		mergedIntegralizacao =
++			existingRecord.integralizacao ||
++			incomingRecord.integralizacao ||
++			null;
++	} else if (historyStatus === "failed") {
++		mergedIntegralizacao = existingRecord.integralizacao || null;
++	} else if (incomingRecord.integralizacao) {
++		mergedIntegralizacao = incomingRecord.integralizacao;
++	} else {
++		mergedIntegralizacao = existingRecord.integralizacao || null;
++	}
++
++	// 4. METADADOS DE SINCRONIZAÇÃO (syncMetadata)
++	const mergedSyncMetadata = {
++		...(existingRecord.syncMetadata || {}),
++		...(incomingRecord.syncMetadata || {}),
++	};
++	if (
++		existingRecord.syncMetadata?.history &&
++		(!incomingRecord.syncMetadata || !incomingRecord.syncMetadata.history)
++	) {
++		mergedSyncMetadata.history = existingRecord.syncMetadata.history;
++	}
++
++	return {
++		...existingRecord,
++		...incomingRecord,
++		name: mergedName,
++		matricula: mergedMatricula,
++		course: mergedCourse,
++		cr: mergedCr,
++		currentSemester: mergedSemester,
++		turmas: mergedTurmas,
++		integralizacao: mergedIntegralizacao,
++		syncMetadata: mergedSyncMetadata,
++		lastSyncAt: new Date().toISOString(),
++	};
+ }
+ 
+ export const dataStore = new DataStore();
+diff --git a/server/index.js b/server/index.js
+index 568ee043..4239012e 100644
+--- a/server/index.js
++++ b/server/index.js
+@@ -139,18 +139,40 @@ app.post("/api/chat", authenticateToken, async (req, res) => {
+ // -------------------------------------------------------------
+ app.post("/api/sync-university", authenticateToken, async (req, res) => {
+ 	try {
+-		const { username, password } = req.body;
++		const { username, password, forceHistory } = req.body;
+ 		if (!username || !password) {
+ 			return res
+ 				.status(400)
+ 				.json({ success: false, error: "Usuário e senha são obrigatórios." });
+ 		}
+ 
+-		const result = await syncWithSigaa(username, password);
++		// 1. Obtém registro anterior estritamente via req.uid para avaliar TTL do histórico
++		const existingRecord = await dataStore.getStudentAcademicRecord(req.uid);
++
++		// 2. forceHistory exige valor booleano estrito true
++		const isForceHistory = forceHistory === true;
++
++		// 3. Executa sincronização com opções de histórico
++		const result = await syncWithSigaa(username, password, {
++			existingRecord,
++			forceHistory: isForceHistory,
++		});
++
+ 		if (result.success && result.student) {
+-			await dataStore.saveStudentAcademicRecord(req.uid, result.student); // AGUARDA O FIRESTORE
++			// 4. Mesclagem resiliente e gravação atômica via transação
++			const mergedStudent = await dataStore.mergeAndSaveStudentAcademicRecord(
++				req.uid,
++				result.student,
++				result.syncReport,
++			);
+ 			invalidateUserCache(req.uid);
++
++			return res.json({
++				...result,
++				student: mergedStudent,
++			});
+ 		}
++
+ 		res.json(result);
+ 	} catch (err) {
+ 		console.error("Error syncing university data:", err);
+@@ -197,14 +219,19 @@ app.post("/api/sync-university/import", authenticateToken, async (req, res) => {
+ 			});
+ 		}
+ 
+-		await dataStore.saveStudentAcademicRecord(req.uid, parsedStudent); // AGUARDA O FIRESTORE
++		// Gravação com mesclagem: não apaga notas, frequência ou integralização prévias
++		const mergedStudent = await dataStore.mergeAndSaveStudentAcademicRecord(
++			req.uid,
++			parsedStudent,
++			{ isManualImport: true, turmas: {} },
++		);
+ 		invalidateUserCache(req.uid);
+ 
+ 		console.log(`[SIGAA Import] Sincronização concluída. [UID: ${req.uid}]`);
+ 		res.json({
+ 			success: true,
+ 			message: "Dados sincronizados.",
+-			student: parsedStudent,
++			student: mergedStudent,
+ 		});
+ 	} catch (err) {
+ 		console.error("Error importing SIGAA data:", err);
+diff --git a/server/services/sigaaParser.js b/server/services/sigaaParser.js
+index 1dc7b3ba..ace488e4 100644
+--- a/server/services/sigaaParser.js
++++ b/server/services/sigaaParser.js
+@@ -599,6 +599,7 @@ export function parseSigaaFrequencyReport(html) {
+ 		ausentes: 0,
+ 		naoRegistradas: 0,
+ 		outros: 0,
++		totalFaltas: 0,
+ 	};
+ 
+ 	$table.find("tbody tr").each((_, row) => {
+@@ -614,25 +615,44 @@ export function parseSigaaFrequencyReport(html) {
+ 		const normalizedStatus = normalize(situacao);
+ 
+ 		let categoria = "outro";
++		let quantidadeFaltas;
++
++		const faltaRegexMatch = normalizedStatus.match(
++			/^(\d+)\s*falta(?:\(s\)|s)?$/,
++		);
+ 
+ 		if (normalizedStatus === "presente") {
+ 			categoria = "presente";
+ 			contagem.presentes++;
++		} else if (faltaRegexMatch) {
++			categoria = "ausente";
++			quantidadeFaltas = parseInt(faltaRegexMatch[1], 10);
++			contagem.ausentes++;
++			contagem.totalFaltas += quantidadeFaltas;
+ 		} else if (["ausente", "falta", "faltou"].includes(normalizedStatus)) {
+ 			categoria = "ausente";
++			quantidadeFaltas = 1;
+ 			contagem.ausentes++;
++			contagem.totalFaltas += 1;
+ 		} else if (["nao registrada", "nao lancada"].includes(normalizedStatus)) {
+ 			categoria = "nao_registrada";
+ 			contagem.naoRegistradas++;
+ 		} else {
++			categoria = "outro";
+ 			contagem.outros++;
+ 		}
+ 
+-		registros.push({
++		const registro = {
+ 			data,
+ 			situacao,
+ 			categoria,
+-		});
++		};
++
++		if (quantidadeFaltas !== undefined) {
++			registro.quantidadeFaltas = quantidadeFaltas;
++		}
++
++		registros.push(registro);
+ 	});
+ 
+ 	// ---------------------------------------------------------
+diff --git a/server/services/sigaaScraper.js b/server/services/sigaaScraper.js
+index 7d249327..d5597960 100644
+--- a/server/services/sigaaScraper.js
++++ b/server/services/sigaaScraper.js
+@@ -794,6 +794,20 @@ async function fetchHistoricoPdfBuffer(session, htmlPortal) {
+ 
+ 	return buffer;
+ }
++
++export function getHistoryTtlMs() {
++	const envHours = Number(process.env.SIGAA_HISTORY_TTL_HOURS);
++	if (Number.isFinite(envHours) && envHours > 0) {
++		return envHours * 60 * 60 * 1000;
++	}
++	if (process.env.SIGAA_HISTORY_TTL_HOURS !== undefined) {
++		console.warn(
++			`[SIGAA TTL] SIGAA_HISTORY_TTL_HOURS inválido ("${process.env.SIGAA_HISTORY_TTL_HOURS}"). Usando fallback de 24 horas.`,
++		);
++	}
++	return 24 * 60 * 60 * 1000;
++}
++
+ export async function syncWithSigaa(username, password, options = {}) {
+ 	const session = createSigaaSession();
+ 
+@@ -870,10 +884,14 @@ export async function syncWithSigaa(username, password, options = {}) {
+ 		);
+ 
+ 		const htmlPortal = portalResponse.data;
+-		const historicoBuffer = await fetchHistoricoPdfBuffer(session, htmlPortal);
++
+ 		// Modo de teste: interrompe após receber o PDF.
+ 		// Não executa o parser, a consulta de notas ou a persistência.
+ 		if (options.onlyHistorico) {
++			const historicoBuffer = await fetchHistoricoPdfBuffer(
++				session,
++				htmlPortal,
++			);
+ 			return {
+ 				success: true,
+ 				testOnly: true,
+@@ -881,17 +899,6 @@ export async function syncWithSigaa(username, password, options = {}) {
+ 			};
+ 		}
+ 
+-		const pendentes = await parseHistoricoPendentes(historicoBuffer);
+-
+-		console.log("[SIGAA INTEGRALIZAÇÃO] Histórico processado:", {
+-			total: pendentes.totalObrigatoriasPendentes,
+-			disciplinas: pendentes.totalDisciplinasObrigatoriasPendentes,
+-			matriculadas: pendentes.totalDisciplinasMatriculadas,
+-			semMatricula: pendentes.totalDisciplinasSemMatriculaAtual,
+-			exigencias: pendentes.exigenciasPendentes.length,
+-		});
+-
+-		// parsedData.integralizacao = pendentes;
+ 		console.log("[SIGAA HTTP Scraper] Acessando histórico de turmas...");
+ 
+ 		// 4. Obtém a página de turmas.
+@@ -906,13 +913,126 @@ export async function syncWithSigaa(username, password, options = {}) {
+ 			"[SIGAA HTTP Scraper] Extraindo e combinando dados acadêmicos...",
+ 		);
+ 
+-		// 5. Combina os dados extraídos das duas páginas.
++		// 5. Combina os dados extraídos das duas páginas para identificar semestre e turmas.
+ 		const parsedData = formatSigaaScrapedData({
+ 			htmlPortal,
+ 			htmlTurmas,
+ 			username,
+ 		});
+-		parsedData.integralizacao = pendentes;
++
++		const syncReport = {
++			turmas: {},
++			history: null,
++		};
++		const warnings = [];
++
++		// 6. Decisão de reaproveitamento ou atualização do histórico
++		const forceHistory = options.forceHistory === true;
++		const existingHistory = options.existingRecord?.integralizacao || null;
++		const existingMeta = options.existingRecord?.syncMetadata?.history || null;
++		const currentSemester = parsedData.currentSemester;
++		const now = new Date();
++		const ttlMs = getHistoryTtlMs();
++
++		const hasValidExistingHistory = Boolean(
++			existingHistory &&
++				(Array.isArray(existingHistory.disciplinasPendentes) ||
++					existingHistory.totalObrigatoriasPendentes !== undefined),
++		);
++		const hasValidMeta = Boolean(
++			existingMeta &&
++				existingMeta.lastSuccessfulAt &&
++				existingMeta.semester,
++		);
++		const sameSemester = existingMeta?.semester === currentSemester;
++		const withinTtl =
++			hasValidMeta &&
++			now.getTime() - new Date(existingMeta.lastSuccessfulAt).getTime() <
++				ttlMs;
++
++		const canReuse =
++			!forceHistory && hasValidExistingHistory && sameSemester && withinTtl;
++
++		if (canReuse) {
++			console.log(
++				"[SIGAA INTEGRALIZAÇÃO] Reutilizando integralização existente dentro do TTL...",
++			);
++			parsedData.integralizacao = existingHistory;
++			parsedData.syncMetadata = {
++				...(options.existingRecord?.syncMetadata || {}),
++				history: {
++					lastSuccessfulAt: existingMeta.lastSuccessfulAt,
++					semester: existingMeta.semester,
++					lastAttemptAt: now.toISOString(),
++					lastAttemptStatus: "reused",
++				},
++			};
++			syncReport.history = "reused";
++		} else {
++			try {
++				console.log(
++					"[SIGAA INTEGRALIZAÇÃO] Baixando e processando histórico escolar...",
++				);
++				const historicoBuffer = await fetchHistoricoPdfBuffer(
++					session,
++					htmlPortal,
++				);
++				const pendentes = await parseHistoricoPendentes(historicoBuffer);
++
++				console.log("[SIGAA INTEGRALIZAÇÃO] Histórico processado:", {
++					total: pendentes.totalObrigatoriasPendentes,
++					disciplinas: pendentes.totalDisciplinasObrigatoriasPendentes,
++					matriculadas: pendentes.totalDisciplinasMatriculadas,
++					semMatricula: pendentes.totalDisciplinasSemMatriculaAtual,
++					exigencias: pendentes.exigenciasPendentes.length,
++				});
++
++				parsedData.integralizacao = pendentes;
++				parsedData.syncMetadata = {
++					...(options.existingRecord?.syncMetadata || {}),
++					history: {
++						lastSuccessfulAt: now.toISOString(),
++						semester: currentSemester,
++						lastAttemptAt: now.toISOString(),
++						lastAttemptStatus: "success",
++					},
++				};
++				syncReport.history = "available";
++			} catch (histError) {
++				console.error(
++					"[SIGAA INTEGRALIZAÇÃO] Falha ao atualizar histórico:",
++					histError.message,
++				);
++				syncReport.history = "failed";
++				syncReport.historyError = histError.message;
++				warnings.push(`Falha no histórico escolar: ${histError.message}`);
++
++				if (hasValidExistingHistory) {
++					parsedData.integralizacao = existingHistory;
++					parsedData.syncMetadata = {
++						...(options.existingRecord?.syncMetadata || {}),
++						history: {
++							lastSuccessfulAt: existingMeta?.lastSuccessfulAt || null,
++							semester: existingMeta?.semester || currentSemester,
++							lastAttemptAt: now.toISOString(),
++							lastAttemptStatus: "failed",
++							...(sameSemester ? {} : { stale: true }),
++						},
++					};
++				} else {
++					parsedData.integralizacao = null;
++					parsedData.syncMetadata = {
++						...(options.existingRecord?.syncMetadata || {}),
++						history: {
++							lastSuccessfulAt: null,
++							semester: currentSemester,
++							lastAttemptAt: now.toISOString(),
++							lastAttemptStatus: "failed",
++						},
++					};
++				}
++			}
++		}
+ 
+ 		// Sincroniza notas e frequência de todas as disciplinas do semestre atual.
+ 		const currentTurmas = parsedData.turmas.filter(
+@@ -947,6 +1067,10 @@ export async function syncWithSigaa(username, password, options = {}) {
+ 
+ 		for (const turma of currentTurmas) {
+ 			const courseCode = turma.codigo || "Código desconhecido";
++			const courseName = turma.disciplina || "Disciplina";
++			const turmaKey =
++				turma.id ||
++				`${turma.periodo}-${turma.codigo}-${turma.turmaId || "sem-turma"}`;
+ 
+ 			try {
+ 				console.log(
+@@ -959,6 +1083,11 @@ export async function syncWithSigaa(username, password, options = {}) {
+ 					parsedData.matricula,
+ 				);
+ 
++				syncReport.turmas[turmaKey] = {
++					notas: academicData.notas.status,
++					frequencia: academicData.frequencia.status,
++				};
++
+ 				// Processamento de Notas
+ 				if (academicData.notas.status === "available") {
+ 					const extractedNotes = academicData.notas.data;
+@@ -1008,6 +1137,9 @@ export async function syncWithSigaa(username, password, options = {}) {
+ 							academicData.notas.error ||
+ 							"Falha técnica na extração de notas",
+ 					});
++					warnings.push(
++						`Falha ao extrair notas de ${courseCode}: ${academicData.notas.error || "Erro técnico"}`,
++					);
+ 				}
+ 
+ 				// Processamento de Frequência
+@@ -1026,6 +1158,11 @@ export async function syncWithSigaa(username, password, options = {}) {
+ 						turma.presencaPercentual = percentual;
+ 					}
+ 
++					// Mapa de frequência é a fonte primária e mais detalhada de faltas
++					if (extractedFrequency.contagem?.totalFaltas !== undefined) {
++						turma.faltas = extractedFrequency.contagem.totalFaltas;
++					}
++
+ 					frequencySummary.updated++;
+ 
+ 					console.log("[SIGAA FREQUÊNCIA] Disciplina atualizada:", {
+@@ -1034,11 +1171,14 @@ export async function syncWithSigaa(username, password, options = {}) {
+ 						presentes: extractedFrequency.contagem?.presentes,
+ 						ausentes: extractedFrequency.contagem?.ausentes,
+ 						naoRegistradas: extractedFrequency.contagem?.naoRegistradas,
++						totalFaltas: extractedFrequency.contagem?.totalFaltas,
+ 						percentual: percentual,
++						faltasTurma: turma.faltas,
+ 					});
+ 				} else if (academicData.frequencia.status === "not_launched") {
+ 					turma.frequenciaDisponivel = false;
+ 					turma.frequencia = null;
++					turma.faltas = null;
+ 					frequencySummary.notLaunched++;
+ 					console.log(
+ 						`[SIGAA FREQUÊNCIA] ${courseCode}: frequência ainda não lançada.`,
+@@ -1050,8 +1190,16 @@ export async function syncWithSigaa(username, password, options = {}) {
+ 							academicData.frequencia.error ||
+ 							"Falha técnica na extração de frequência",
+ 					});
++					warnings.push(
++						`Falha ao extrair frequência de ${courseCode}: ${academicData.frequencia.error || "Erro técnico"}`,
++					);
+ 				}
+ 			} catch (error) {
++				syncReport.turmas[turmaKey] = {
++					notas: "failed",
++					frequencia: "failed",
++				};
++
+ 				notesSummary.failed.push({
+ 					codigo: courseCode,
+ 					error: error.message,
+@@ -1062,6 +1210,10 @@ export async function syncWithSigaa(username, password, options = {}) {
+ 					error: error.message,
+ 				});
+ 
++				warnings.push(
++					`Falha geral na turma ${courseCode}: ${error.message}`,
++				);
++
+ 				console.error(
+ 					`[SIGAA ACADÊMICO] Falha geral em ${courseCode}:`,
+ 					error.message,
+@@ -1079,10 +1231,21 @@ export async function syncWithSigaa(username, password, options = {}) {
+ 			`[SIGAA HTTP Scraper] Extração concluída. Turmas encontradas: ${parsedData.turmas.length}`,
+ 		);
+ 
++		const isPartial =
++			syncReport.history === "failed" ||
++			Object.values(syncReport.turmas).some(
++				(t) => t.notas === "failed" || t.frequencia === "failed",
++			);
++
+ 		return {
+ 			success: true,
+-			message: "Dados extraídos via HTTP.",
++			partial: isPartial,
++			message: isPartial
++				? "Sincronização parcial com avisos técnicos."
++				: "Dados extraídos via HTTP.",
+ 			student: parsedData,
++			syncReport,
++			warnings,
+ 		};
+ 	} catch (error) {
+ 		console.error("[SIGAA HTTP Scraper] Erro:", error.message);
