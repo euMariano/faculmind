@@ -123,7 +123,7 @@ async function submitJsfLink(session, $, $link, referer) {
 		console.log("[SIGAA JSF] Envio do formulário do menu:", {
 			action: targetUrl,
 			command: command.params,
-			viewStateEnviado: payload.get("javax.faces.ViewState"),
+			viewStatePresente: Boolean(payload.get("javax.faces.ViewState")),
 			fields: [...payload.entries()].map(([name, value]) => ({
 				name,
 				value:
@@ -152,6 +152,22 @@ function normalizeSigaaLabel(value) {
 
 function normalizeDisciplineName(value) {
 	return normalizeSigaaLabel(value).replace(/^[a-z0-9]+\s*-\s*/i, "");
+}
+
+function findMenuLink($, labelText) {
+	const normalizedTarget = normalizeSigaaLabel(labelText);
+
+	return $("#formMenu a")
+		.filter((_, element) => {
+			const $el = $(element);
+			const itemLabel = normalizeSigaaLabel($el.find(".itemMenu").text());
+			const directLabel = normalizeSigaaLabel($el.text());
+
+			return (
+				itemLabel === normalizedTarget || directLabel === normalizedTarget
+			);
+		})
+		.first();
 }
 
 function getPortalSemester($, link) {
@@ -319,13 +335,7 @@ async function scrapeNotesForTurma(session, turma, matricula) {
 	});
 
 	// 2. Localiza o link Ver Notas.
-	const $notesLink = $class("#formMenu a")
-		.filter((_, element) => {
-			const label = $class(element).find(".itemMenu").text();
-
-			return normalizeSigaaLabel(label) === "ver notas";
-		})
-		.first();
+	const $notesLink = findMenuLink($class, "ver notas");
 
 	if (!$notesLink.length) {
 		throw new Error("Link Ver Notas não encontrado.");
@@ -369,6 +379,7 @@ async function scrapeNotesForTurma(session, turma, matricula) {
 		notes,
 	};
 }
+
 async function scrapeFrequencyForTurma(session, turma) {
 	const { $class, classUrl, actualCode, actualName } = await openTurmaVirtual(
 		session,
@@ -376,14 +387,7 @@ async function scrapeFrequencyForTurma(session, turma) {
 	);
 
 	// 1. Localiza o item Frequência pelo texto, não pelo ID dinâmico.
-	const $frequencyLink = $class("#formMenu a")
-		.filter((_, element) => {
-			return (
-				normalizeSigaaLabel($class(element).find(".itemMenu").text()) ===
-				"frequencia"
-			);
-		})
-		.first();
+	const $frequencyLink = findMenuLink($class, "frequencia");
 
 	if (!$frequencyLink.length) {
 		throw new Error("Link Frequência não encontrado.");
@@ -411,6 +415,7 @@ async function scrapeFrequencyForTurma(session, turma) {
 	const warningText = normalizeSigaaLabel(
 		[
 			$frequency("#painel-erros").text(),
+			$frequency(".mensagemStatus").text(),
 			$frequency('form[action*="/FrequenciaAluno/mapa.jsf"]').text(),
 		].join(" "),
 	);
@@ -420,7 +425,7 @@ async function scrapeFrequencyForTurma(session, turma) {
 		/frequencia.{0,50}(nao foi|nao foram|nao esta|nao estao).{0,30}(lancad|registrad)/.test(
 			warningText,
 		) ||
-		/nao ha registros de frequencia|nao existem registros de frequencia/.test(
+		/nao ha registros de frequencia|nao existem registros de frequencia|nenhum registro de frequencia/.test(
 			warningText,
 		);
 
@@ -443,6 +448,228 @@ async function scrapeFrequencyForTurma(session, turma) {
 		status: "available",
 		frequency,
 	};
+}
+
+async function scrapeAcademicDataForTurma(session, turma, matricula) {
+	// 1. Abre a Turma Virtual uma única vez.
+	const { $class, classUrl, actualCode, actualName } = await openTurmaVirtual(
+		session,
+		turma,
+	);
+
+	console.log("[SIGAA ACADÊMICO] Turma aberta:", {
+		codigo: actualCode,
+		disciplina: actualName,
+		periodo: turma.periodo,
+	});
+
+	const result = {
+		notas: {
+			status: "failed",
+			data: null,
+			error: null,
+		},
+		frequencia: {
+			status: "failed",
+			data: null,
+			error: null,
+		},
+	};
+
+	let $notes = null;
+	let notesUrl = classUrl;
+
+	// 2. Consulta de Notas
+	try {
+		console.log(
+			`[SIGAA NOTAS] Consultando ${actualCode}: ${actualName}`,
+		);
+
+		const $notesLink = findMenuLink($class, "ver notas");
+
+		if (!$notesLink.length) {
+			throw new Error("Link Ver Notas não encontrado.");
+		}
+
+		const notesResponse = await submitJsfLink(
+			session,
+			$class,
+			$notesLink,
+			classUrl,
+		);
+
+		const notesHtml = notesResponse.data;
+		notesUrl = notesResponse.request?.res?.responseUrl || classUrl;
+		$notes = cheerio.load(notesHtml);
+
+		const warningText = normalizeSigaaLabel(
+			[$class("#painel-erros").text(), $notes("#painel-erros").text()].join(" "),
+		);
+
+		if (warningText.includes("ainda nao foram lancadas notas")) {
+			result.notas = {
+				status: "not_launched",
+				data: null,
+				error: null,
+			};
+			console.log(`[SIGAA NOTAS] ${actualCode}: notas ainda não lançadas.`);
+		} else if (
+			!$notes("#relatorio").length ||
+			!$notes("#relatorio table.tabelaRelatorio").length
+		) {
+			throw new Error("SIGAA não retornou o relatório de notas esperado.");
+		} else {
+			const parsedNotes = parseSigaaNotesReport(notesHtml, matricula);
+			result.notas = {
+				status: "available",
+				data: parsedNotes,
+				error: null,
+			};
+		}
+	} catch (error) {
+		result.notas = {
+			status: "failed",
+			data: null,
+			error: error.message,
+		};
+		console.error(`[SIGAA NOTAS] Falha em ${actualCode}:`, error.message);
+	}
+
+	// 3. Consulta de Frequência
+	try {
+		console.log(
+			`[SIGAA FREQUÊNCIA] Consultando ${actualCode}: ${actualName}`,
+		);
+
+		let $frequencyPage = null;
+		let frequencyReferer = classUrl;
+
+		if (
+			$notes &&
+			$notes("#formMenu").length &&
+			findMenuLink($notes, "frequencia").length
+		) {
+			$frequencyPage = $notes;
+			frequencyReferer = notesUrl;
+			console.log(
+				`[SIGAA FREQUÊNCIA] Utilizando menu e ViewState da resposta de notas para ${actualCode}.`,
+			);
+		} else {
+			console.log(
+				`[SIGAA FREQUÊNCIA] Obtendo página atualizada da Turma Virtual via GET para ${actualCode}...`,
+			);
+			const refreshResponse = await session.get(classUrl);
+			const $refreshed = cheerio.load(refreshResponse.data);
+
+			if (
+				$refreshed("#formMenu").length &&
+				findMenuLink($refreshed, "frequencia").length
+			) {
+				$frequencyPage = $refreshed;
+				frequencyReferer =
+					refreshResponse.request?.res?.responseUrl || classUrl;
+			} else {
+				throw new Error(
+					"Menu da Turma Virtual ou link Frequência não encontrado.",
+				);
+			}
+		}
+
+		let frequencyResponse;
+		try {
+			const $frequencyLink = findMenuLink($frequencyPage, "frequencia");
+			if (!$frequencyLink.length) {
+				throw new Error("Link Frequência não encontrado.");
+			}
+
+			frequencyResponse = await submitJsfLink(
+				session,
+				$frequencyPage,
+				$frequencyLink,
+				frequencyReferer,
+			);
+		} catch (linkError) {
+			if ($frequencyPage === $notes) {
+				console.warn(
+					`[SIGAA FREQUÊNCIA] Envio a partir da resposta de notas falhou (${linkError.message}). Tentando atualizar Turma Virtual via GET...`,
+				);
+				const refreshResponse = await session.get(classUrl);
+				const $refreshed = cheerio.load(refreshResponse.data);
+				const $frequencyLink = findMenuLink($refreshed, "frequencia");
+
+				if (!$frequencyLink.length) {
+					throw new Error(
+						"Link Frequência não encontrado após recarga da Turma Virtual.",
+					);
+				}
+
+				frequencyResponse = await submitJsfLink(
+					session,
+					$refreshed,
+					$frequencyLink,
+					refreshResponse.request?.res?.responseUrl || classUrl,
+				);
+			} else {
+				throw linkError;
+			}
+		}
+
+		const frequencyHtml = frequencyResponse.data;
+		const $frequency = cheerio.load(frequencyHtml);
+
+		const warningText = normalizeSigaaLabel(
+			[
+				$frequency("#painel-erros").text(),
+				$frequency(".mensagemStatus").text(),
+				$frequency('form[action*="/FrequenciaAluno/mapa.jsf"]').text(),
+			].join(" "),
+		);
+
+		const frequencyNotLaunched =
+			/nao (?:foram|foi) lancad[oa]s? frequencias?/.test(warningText) ||
+			/frequencia.{0,50}(nao foi|nao foram|nao esta|nao estao).{0,30}(lancad|registrad)/.test(
+				warningText,
+			) ||
+			/nao ha registros de frequencia|nao existem registros de frequencia|nenhum registro de frequencia/.test(
+				warningText,
+			);
+
+		if (frequencyNotLaunched) {
+			result.frequencia = {
+				status: "not_launched",
+				data: null,
+				error: null,
+			};
+			console.log(
+				`[SIGAA FREQUÊNCIA] ${actualCode}: frequência ainda não lançada.`,
+			);
+		} else if (
+			!$frequency('form[action*="/FrequenciaAluno/mapa.jsf"]').length
+		) {
+			throw new Error(
+				"SIGAA não retornou o formulário esperado do mapa de frequência.",
+			);
+		} else {
+			const parsedFrequency = parseSigaaFrequencyReport(frequencyHtml);
+			result.frequencia = {
+				status: "available",
+				data: parsedFrequency,
+				error: null,
+			};
+		}
+	} catch (error) {
+		result.frequencia = {
+			status: "failed",
+			data: null,
+			error: error.message,
+		};
+		console.error(
+			`[SIGAA FREQUÊNCIA] Falha em ${actualCode}:`,
+			error.message,
+		);
+	}
+
+	return result;
 }
 
 async function fetchHistoricoPdfBuffer(session, htmlPortal) {
@@ -687,7 +914,7 @@ export async function syncWithSigaa(username, password, options = {}) {
 		});
 		parsedData.integralizacao = pendentes;
 
-		// Sincroniza as notas de todas as disciplinas do semestre atual.
+		// Sincroniza notas e frequência de todas as disciplinas do semestre atual.
 		const currentTurmas = parsedData.turmas.filter(
 			(turma) => turma.periodo === parsedData.currentSemester,
 		);
@@ -703,87 +930,6 @@ export async function syncWithSigaa(username, password, options = {}) {
 			failed: [],
 		};
 
-		console.log("[SIGAA NOTAS] Iniciando sincronização:", {
-			semestre: parsedData.currentSemester,
-			total: currentTurmas.length,
-		});
-
-		for (const turma of currentTurmas) {
-			const courseCode = turma.codigo || "Código desconhecido";
-
-			try {
-				console.log(
-					`[SIGAA NOTAS] Consultando ${courseCode}: ${turma.disciplina}`,
-				);
-
-				const result = await scrapeNotesForTurma(
-					session,
-					turma,
-					parsedData.matricula,
-				);
-
-				if (result.status === "not_launched") {
-					turma.notasDisponiveis = false;
-
-					notesSummary.notLaunched++;
-
-					console.log(`[SIGAA NOTAS] ${courseCode}: notas ainda não lançadas.`);
-
-					continue;
-				}
-
-				const extractedNotes = result.notes;
-
-				const getAssessmentGrade = (code) =>
-					extractedNotes.avaliacoes.find(
-						(assessment) => assessment.codigo === code,
-					)?.nota ?? null;
-
-				turma.notasDisponiveis = true;
-
-				turma.notas = {
-					...(turma.notas || {}),
-
-					unidade1: getAssessmentGrade("AV1"),
-					unidade2: getAssessmentGrade("AV2"),
-					unidade3: getAssessmentGrade("AV3"),
-
-					mediaParcial: extractedNotes.mediaParcial,
-					avaliacoes: extractedNotes.avaliacoes,
-					mediaAvaliacoes: extractedNotes.mediaAvaliacoes,
-					provaFinal: extractedNotes.provaFinal,
-					resultado: extractedNotes.resultado,
-					situacao: extractedNotes.situacao,
-				};
-
-				if (extractedNotes.faltas !== null) {
-					turma.faltas = extractedNotes.faltas;
-				}
-
-				notesSummary.updated++;
-
-				console.log("[SIGAA NOTAS] Disciplina atualizada:", {
-					codigo: courseCode,
-					avaliacoes: extractedNotes.avaliacoes.length,
-					mediaParcial: extractedNotes.mediaParcial,
-					faltas: extractedNotes.faltas,
-				});
-			} catch (error) {
-				notesSummary.failed.push({
-					codigo: courseCode,
-					error: error.message,
-				});
-
-				console.error(`[SIGAA NOTAS] Falha em ${courseCode}:`, error.message);
-			}
-		}
-
-		console.log("[SIGAA NOTAS] Resumo da sincronização:", notesSummary);
-
-		// ---------------------------------------------------------
-		// SINCRONIZAÇÃO DA FREQUÊNCIA
-		// ---------------------------------------------------------
-
 		const frequencySummary = {
 			total: currentTurmas.length,
 			updated: 0,
@@ -791,74 +937,139 @@ export async function syncWithSigaa(username, password, options = {}) {
 			failed: [],
 		};
 
-		console.log("[SIGAA FREQUÊNCIA] Iniciando sincronização:", {
-			semestre: parsedData.currentSemester,
-			total: currentTurmas.length,
-		});
+		console.log(
+			"[SIGAA ACADÊMICO] Iniciando consulta unificada de notas e frequência:",
+			{
+				semestre: parsedData.currentSemester,
+				total: currentTurmas.length,
+			},
+		);
 
 		for (const turma of currentTurmas) {
 			const courseCode = turma.codigo || "Código desconhecido";
 
 			try {
 				console.log(
-					`[SIGAA FREQUÊNCIA] Consultando ${courseCode}: ${turma.disciplina}`,
+					`[SIGAA ACADÊMICO] Processando ${courseCode}: ${turma.disciplina}`,
 				);
 
-				const result = await scrapeFrequencyForTurma(session, turma);
+				const academicData = await scrapeAcademicDataForTurma(
+					session,
+					turma,
+					parsedData.matricula,
+				);
 
-				if (result.status === "not_launched") {
+				// Processamento de Notas
+				if (academicData.notas.status === "available") {
+					const extractedNotes = academicData.notas.data;
+
+					const getAssessmentGrade = (code) =>
+						extractedNotes.avaliacoes.find(
+							(assessment) => assessment.codigo === code,
+						)?.nota ?? null;
+
+					turma.notasDisponiveis = true;
+
+					turma.notas = {
+						...(turma.notas || {}),
+
+						unidade1: getAssessmentGrade("AV1"),
+						unidade2: getAssessmentGrade("AV2"),
+						unidade3: getAssessmentGrade("AV3"),
+
+						mediaParcial: extractedNotes.mediaParcial,
+						avaliacoes: extractedNotes.avaliacoes,
+						mediaAvaliacoes: extractedNotes.mediaAvaliacoes,
+						provaFinal: extractedNotes.provaFinal,
+						resultado: extractedNotes.resultado,
+						situacao: extractedNotes.situacao,
+					};
+
+					if (extractedNotes.faltas !== null) {
+						turma.faltas = extractedNotes.faltas;
+					}
+
+					notesSummary.updated++;
+
+					console.log("[SIGAA NOTAS] Disciplina atualizada:", {
+						codigo: courseCode,
+						avaliacoes: extractedNotes.avaliacoes.length,
+						mediaParcial: extractedNotes.mediaParcial,
+						faltas: extractedNotes.faltas,
+					});
+				} else if (academicData.notas.status === "not_launched") {
+					turma.notasDisponiveis = false;
+					notesSummary.notLaunched++;
+					console.log(`[SIGAA NOTAS] ${courseCode}: notas ainda não lançadas.`);
+				} else {
+					notesSummary.failed.push({
+						codigo: courseCode,
+						error:
+							academicData.notas.error ||
+							"Falha técnica na extração de notas",
+					});
+				}
+
+				// Processamento de Frequência
+				if (academicData.frequencia.status === "available") {
+					const extractedFrequency = academicData.frequencia.data;
+
+					turma.frequenciaDisponivel = true;
+					turma.frequencia = extractedFrequency;
+
+					// Mantém o campo resumido que já existe no objeto da turma.
+					// Utiliza exclusivamente o percentual relativo à carga horária.
+					const percentual =
+						extractedFrequency.resumo?.percentualCargaHoraria ?? null;
+
+					if (percentual !== null) {
+						turma.presencaPercentual = percentual;
+					}
+
+					frequencySummary.updated++;
+
+					console.log("[SIGAA FREQUÊNCIA] Disciplina atualizada:", {
+						codigo: courseCode,
+						registros: extractedFrequency.totalRegistros,
+						presentes: extractedFrequency.contagem?.presentes,
+						ausentes: extractedFrequency.contagem?.ausentes,
+						naoRegistradas: extractedFrequency.contagem?.naoRegistradas,
+						percentual: percentual,
+					});
+				} else if (academicData.frequencia.status === "not_launched") {
 					turma.frequenciaDisponivel = false;
 					turma.frequencia = null;
-
 					frequencySummary.notLaunched++;
-
 					console.log(
 						`[SIGAA FREQUÊNCIA] ${courseCode}: frequência ainda não lançada.`,
 					);
-
-					continue;
+				} else {
+					frequencySummary.failed.push({
+						codigo: courseCode,
+						error:
+							academicData.frequencia.error ||
+							"Falha técnica na extração de frequência",
+					});
 				}
-
-				if (result.status !== "available") {
-					throw new Error(
-						`Status inesperado na consulta de frequência: ${result.status}`,
-					);
-				}
-
-				turma.frequenciaDisponivel = true;
-				turma.frequencia = result.frequency;
-
-				// Mantém o campo resumido que já existe no objeto da turma.
-				// Utiliza exclusivamente o percentual relativo à carga horária.
-				const percentual = result.frequency.resumo.percentualCargaHoraria;
-
-				if (percentual !== null) {
-					turma.presencaPercentual = percentual;
-				}
-
-				frequencySummary.updated++;
-
-				console.log("[SIGAA FREQUÊNCIA] Disciplina atualizada:", {
-					codigo: courseCode,
-					registros: result.frequency.totalRegistros,
-					presentes: result.frequency.contagem.presentes,
-					ausentes: result.frequency.contagem.ausentes,
-					naoRegistradas: result.frequency.contagem.naoRegistradas,
-					percentual: percentual,
-				});
 			} catch (error) {
+				notesSummary.failed.push({
+					codigo: courseCode,
+					error: error.message,
+				});
+
 				frequencySummary.failed.push({
 					codigo: courseCode,
 					error: error.message,
 				});
 
 				console.error(
-					`[SIGAA FREQUÊNCIA] Falha em ${courseCode}:`,
+					`[SIGAA ACADÊMICO] Falha geral em ${courseCode}:`,
 					error.message,
 				);
 			}
 		}
 
+		console.log("[SIGAA NOTAS] Resumo da sincronização:", notesSummary);
 		console.log(
 			"[SIGAA FREQUÊNCIA] Resumo da sincronização:",
 			frequencySummary,
@@ -890,3 +1101,10 @@ export async function syncWithSigaa(username, password, options = {}) {
 export async function scrapePublicUniversityNotices() {
 	return [];
 }
+
+export {
+	openTurmaVirtual,
+	scrapeAcademicDataForTurma,
+	scrapeFrequencyForTurma,
+	scrapeNotesForTurma,
+};
