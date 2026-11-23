@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { useApi } from "../../context/ApiContext";
 import { sound } from "../../services/sound";
 import type { ChatMessage } from "../../types";
@@ -310,9 +311,93 @@ export const FaculMindChatModal: React.FC<ChatModalProps> = ({
 													: "bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs"
 											}`}
 										>
-											<div className="whitespace-pre-line prose-xs">
-												{msg.text}
-											</div>
+											{isUser ? (
+												<div className="whitespace-pre-line">
+													{msg.text}
+												</div>
+											) : (
+												<div className="text-xs">
+													<ReactMarkdown
+														components={{
+															p: ({ children }) => (
+																<p className="mb-2 last:mb-0 leading-relaxed">
+																	{children}
+																</p>
+															),
+															strong: ({ children }) => (
+																<strong className="font-bold text-slate-900">
+																	{children}
+																</strong>
+															),
+															em: ({ children }) => (
+																<em className="italic">{children}</em>
+															),
+															ul: ({ children }) => (
+																<ul className="list-disc list-outside ml-4 mb-2 space-y-1">
+																	{children}
+																</ul>
+															),
+															ol: ({ children }) => (
+																<ol className="list-decimal list-outside ml-4 mb-2 space-y-1">
+																	{children}
+																</ol>
+															),
+															li: ({ children }) => (
+																<li className="leading-relaxed">
+																	{children}
+																</li>
+															),
+															h1: ({ children }) => (
+																<h1 className="text-sm font-bold text-slate-900 mb-1.5 mt-2 first:mt-0">
+																	{children}
+																</h1>
+															),
+															h2: ({ children }) => (
+																<h2 className="text-xs font-bold text-slate-900 mb-1 mt-2 first:mt-0">
+																	{children}
+																</h2>
+															),
+															h3: ({ children }) => (
+																<h3 className="text-xs font-semibold text-slate-900 mb-1 mt-1.5 first:mt-0">
+																	{children}
+																</h3>
+															),
+															a: ({ href, children }) => (
+																<a
+																	href={href}
+																	target="_blank"
+																	rel="noreferrer noopener"
+																	className="text-ufpe-burgundy hover:underline font-semibold inline-flex items-center gap-0.5"
+																>
+																	{children}
+																</a>
+															),
+															code: ({ className, children, ...props }) => {
+																const isInline = !className;
+																return isInline ? (
+																	<code
+																		className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded text-[11px] font-mono border border-slate-200"
+																		{...props}
+																	>
+																		{children}
+																	</code>
+																) : (
+																	<pre className="bg-slate-900 text-slate-100 p-2.5 rounded-xl text-[11px] font-mono overflow-x-auto my-2">
+																		<code {...props}>{children}</code>
+																	</pre>
+																);
+															},
+															blockquote: ({ children }) => (
+																<blockquote className="border-l-2 border-ufpe-burgundy pl-2.5 my-2 italic text-slate-600">
+																	{children}
+																</blockquote>
+															),
+														}}
+													>
+														{msg.text}
+													</ReactMarkdown>
+												</div>
+											)}
 
 											{/* Optional Action Button */}
 											{msg.quickAction && onNavigateAction && (
