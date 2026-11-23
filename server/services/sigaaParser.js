@@ -389,6 +389,8 @@ export function formatSigaaScrapedData(scrapedRawData = {}) {
 			presencaPercentual: null,
 			docente: null,
 			status: null,
+			frequenciaDisponivel: null,
+			frequencia: null,
 
 			notas: {
 				unidade1: null,
@@ -540,5 +542,143 @@ export function parseSigaaNotesReport(html, matricula) {
 		resultado: cleanText(cellText(lastIndex - 3)),
 		faltas: parseNumber(cellText(lastIndex - 2)),
 		situacao: cleanText(cellText(lastIndex - 1)),
+	};
+}
+
+/**
+ * Extrai o mapa de frequência de uma disciplina da Turma Virtual.
+ *
+ * Preserva os registros individuais e os indicadores
+ * apresentados pelo próprio SIGAA.
+ *
+ * "Não Registrada" nunca é contabilizada como falta.
+ */
+export function parseSigaaFrequencyReport(html) {
+	const $ = cheerio.load(html || "");
+
+	const normalize = (value) =>
+		String(value || "")
+			.normalize("NFD")
+			.replace(/[\u0300-\u036f]/g, "")
+			.replace(/\s+/g, " ")
+			.trim()
+			.toLowerCase();
+
+	const cleanText = (value) =>
+		String(value || "")
+			.replace(/\s+/g, " ")
+			.trim();
+
+	// ---------------------------------------------------------
+	// 1. LOCALIZA A TABELA DE FREQUÊNCIA
+	// ---------------------------------------------------------
+
+	const $table = $("table.listing")
+		.filter((_, element) => {
+			const headers = $(element)
+				.find("thead th")
+				.map((_, th) => normalize($(th).text()))
+				.get();
+
+			return headers.includes("data") && headers.includes("situacao");
+		})
+		.first();
+
+	if (!$table.length) {
+		throw new Error("Tabela de frequência não encontrada.");
+	}
+
+	// ---------------------------------------------------------
+	// 2. EXTRAI OS REGISTROS INDIVIDUAIS
+	// ---------------------------------------------------------
+
+	const registros = [];
+
+	const contagem = {
+		presentes: 0,
+		ausentes: 0,
+		naoRegistradas: 0,
+		outros: 0,
+	};
+
+	$table.find("tbody tr").each((_, row) => {
+		const cells = $(row).children("td");
+
+		if (cells.length < 2) return;
+
+		const data = cleanText(cells.eq(0).text());
+		const situacao = cleanText(cells.eq(1).text());
+
+		if (!data || !situacao) return;
+
+		const normalizedStatus = normalize(situacao);
+
+		let categoria = "outro";
+
+		if (normalizedStatus === "presente") {
+			categoria = "presente";
+			contagem.presentes++;
+		} else if (["ausente", "falta", "faltou"].includes(normalizedStatus)) {
+			categoria = "ausente";
+			contagem.ausentes++;
+		} else if (["nao registrada", "nao lancada"].includes(normalizedStatus)) {
+			categoria = "nao_registrada";
+			contagem.naoRegistradas++;
+		} else {
+			contagem.outros++;
+		}
+
+		registros.push({
+			data,
+			situacao,
+			categoria,
+		});
+	});
+
+	// ---------------------------------------------------------
+	// 3. EXTRAI O RESUMO OFICIAL DO SIGAA
+	// ---------------------------------------------------------
+
+	const summaryText = normalize($(".botoes-show").first().text());
+
+	const extractNumber = (pattern) => {
+		const match = summaryText.match(pattern);
+
+		if (!match) return null;
+
+		const value = Number(match[1].replace(",", "."));
+
+		return Number.isFinite(value) ? value : null;
+	};
+
+	const resumo = {
+		presencasRegistradas: extractNumber(/presencas registradas\s*:\s*(\d+)/),
+
+		aulasComRegistro: extractNumber(
+			/numero de aulas com registro de frequencia\s*:\s*(\d+)/,
+		),
+
+		percentualAulasRegistradas: extractNumber(
+			/porcentagem de frequencia em relacao as aulas com registro de frequencia\s*:\s*([\d.,]+)\s*%/,
+		),
+
+		aulasDefinidasCargaHoraria: extractNumber(
+			/numero de aulas definidas pela ch do componente\s*:\s*(\d+)/,
+		),
+
+		percentualCargaHoraria: extractNumber(
+			/porcentagem de frequencia em relacao a ch\s*:\s*([\d.,]+)\s*%/,
+		),
+	};
+
+	// ---------------------------------------------------------
+	// 4. RETORNA OS DADOS
+	// ---------------------------------------------------------
+
+	return {
+		registros,
+		totalRegistros: registros.length,
+		contagem,
+		resumo,
 	};
 }

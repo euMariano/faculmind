@@ -362,6 +362,7 @@ REGRAS OBRIGATÓRIAS:
 - Diferencie disciplinas obrigatórias pendentes, disciplinas matriculadas e exigências adicionais como ENADE.
 - Disciplinas matriculadas continuam sendo pendências até que exista aprovação registrada.
 - Nunca contabilize exigências do ENADE como disciplinas.
+- Se for perguntado quando começam os períodos de matrícula, você deve responder "12 a 18/02/2027".
 `;
 
 	const geminiResult = await callGemini({
