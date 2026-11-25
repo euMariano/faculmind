@@ -418,7 +418,29 @@ app.post("/api/permanencia", authenticateToken, (req, res) => {
 	res.json({ success: true, stats: updated });
 });
 
+// -------------------------------------------------------------
+// Frontend React/Vite em produção
+// -------------------------------------------------------------
+if (process.env.NODE_ENV === "production") {
+	const distPath = path.join(__dirname, "../dist");
+
+	// Serve os arquivos estáticos gerados pelo Vite
+	app.use(express.static(distPath));
+
+	// Fallback para rotas da aplicação React
+	app.get("*", (req, res) => {
+		// Não transformar rotas inexistentes da API em páginas HTML
+		if (req.path === "/api" || req.path.startsWith("/api/")) {
+			return res.status(404).json({
+				error: "Rota da API não encontrada",
+			});
+		}
+
+		res.sendFile(path.join(distPath, "index.html"));
+	});
+}
+
 // Start Express Server
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
 	console.log(`🚀 Facul Mind Server rodando na porta ${PORT}`);
 });

@@ -9,3 +9,9 @@ dist/
 build/
 .env
 venv/
+chave.txt
+.env
+.env.*
+!.env.example
+requisicao.md
+requisicao-2.md
