@@ -7,7 +7,8 @@ import {
   CheckCircle2, 
   Sparkles, 
   Send, 
-  X
+  X,
+  ExternalLink
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Opportunity } from '../../types';
@@ -206,11 +207,29 @@ export const OpportunitiesFeed: React.FC = () => {
                 <span className="text-[10px] text-slate-400 block text-right">
                   {opp.applicants} inscritos
                 </span>
+                <a
+                  href={opp.editalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => sound.playPop()}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs hover:shadow-md transition whitespace-nowrap inline-flex items-center gap-1.5"
+                >
+                  <span>
+                    {opp.editalUrl?.includes('forms')
+                      ? 'Preencher Inscrição'
+                      : opp.category === 'Bolsas'
+                      ? 'Acessar Edital'
+                      : opp.category === 'Eventos'
+                      ? 'Acessar Inscrição'
+                      : 'Acessar Edital / Vaga'}
+                  </span>
+                  <ExternalLink size={13} />
+                </a>
                 <button
                   onClick={() => { setSelectedOpp(opp); setAppliedSuccess(false); sound.playPop(); }}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs hover:shadow-md transition whitespace-nowrap"
+                  className="text-[11px] font-semibold text-slate-500 hover:text-emerald-700 underline transition"
                 >
-                  {opp.type === 'Grupo de Estudo' ? 'Participar' : opp.type === 'Evento' ? 'Inscrever-se' : 'Quero me candidatar'}
+                  Registrar no App
                 </button>
               </div>
             </div>
@@ -290,6 +309,19 @@ export const OpportunitiesFeed: React.FC = () => {
                 <div className="p-3 bg-slate-50 rounded-xl text-[11px] text-slate-600 border border-slate-200 space-y-1">
                   <div><strong>Requisitos:</strong> {selectedOpp.requirements}</div>
                   <div><strong>Remuneração:</strong> {selectedOpp.remuneration}</div>
+                  {selectedOpp.editalUrl && (
+                    <div className="pt-1">
+                      <a
+                        href={selectedOpp.editalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-700 hover:text-emerald-900 font-bold inline-flex items-center gap-1 underline"
+                      >
+                        Abrir edital/formulário externo oficial
+                        <ExternalLink size={11} />
+                      </a>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-2 flex justify-end gap-2">

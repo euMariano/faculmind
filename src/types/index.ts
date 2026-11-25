@@ -134,6 +134,7 @@ export interface Opportunity {
 	urgent: boolean;
 	postedBy: string;
 	applicants: number;
+	editalUrl?: string;
 }
 
 export interface Ticket {
